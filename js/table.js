@@ -271,7 +271,11 @@ class TableManager {
         incidents.forEach(incident => {
             const row = document.createElement('tr');
             row.className = 'hover:bg-gray-50 cursor-pointer transition-colors duration-150';
-            row.addEventListener('click', () => this.showIncidentDetails(incident));
+            row.addEventListener('click', (e) => {
+                // Prevent modal if clicking a link
+                if (e.target.tagName === 'A') return;
+                this.showIncidentDetails(incident);
+            });
 
             const date = incident['Date of Incident'] 
                 ? new Date(incident['Date of Incident']).toLocaleDateString()
@@ -314,7 +318,7 @@ class TableManager {
 
         if (!modal || !modalTitle || !modalContent) return;
 
-        modalTitle.textContent = this.escapeHtml(incident.Title);
+        modalTitle.textContent = this.escapeHtml(incident.Title || 'No Title');
 
         const details = [];
         if (incident['Date of Incident']) {

@@ -33,21 +33,22 @@
 <body class="bg-gray-50 min-h-screen flex flex-col overflow-x-hidden">
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <img src="assets/logo.svg" alt="Dalit Violence Tracker Logo" class="h-10 w-10">
-                    <div>
-                        <h1 class="text-2xl md:text-3xl font-bold text-gray-900">India Dalit Violence Tracker</h1>
-                        <p class="text-sm text-gray-500">Tracking incidents of violence and hate crimes</p>
-                    </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <img src="assets/logo.svg" alt="Dalit Violence Tracker Logo" class="h-10 w-10">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900">India Dalit Violence Tracker</h1>
+                    <p class="text-sm text-gray-500">Tracking incidents of violence and hate crimes</p>
                 </div>
-                <button class="md:hidden" id="mobileMenuButton">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
             </div>
+            <button id="themeToggle" class="ml-4 px-3 py-2 rounded-md bg-primary-100 text-primary-700 hover:bg-primary-200 focus:outline-none focus:ring-2 focus:ring-primary-300 transition-colors duration-150" aria-label="Toggle dark mode">
+                <span id="themeIcon">🌙</span>
+            </button>
+            <button class="md:hidden" id="mobileMenuButton">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
         </div>
         <!-- Mobile Menu -->
         <div class="hidden md:hidden" id="mobileMenu">
@@ -74,7 +75,7 @@
             <!-- Map Section -->
             <div class="bg-white rounded-lg shadow p-6 mb-8">
                 <h2 class="text-xl font-semibold mb-4">Incident Map</h2>
-                <div id="mapContainer" class="w-full min-h-[300px] h-[350px] sm:h-[400px] md:h-[500px] rounded-lg"></div>
+                <div id="mapContainer" class="w-full bg-primary-50 min-h-[350px] h-[350px] md:h-[500px] xl:h-[650px] rounded-lg"></div>
             </div>
         </div>
         <div id="tabPanel-stats" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-stats">
@@ -235,6 +236,37 @@
             document.getElementById('tabPanel-' + btn.id.replace('tab-', '')).classList.remove('hidden');
         });
     });
+    // Theme toggle logic
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    function setTheme(mode) {
+        if (mode === 'dark') {
+            document.body.classList.add('dark');
+            themeIcon.textContent = '☀️';
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.remove('dark');
+            themeIcon.textContent = '🌙';
+            localStorage.setItem('theme', 'light');
+        }
+    }
+    function toggleTheme() {
+        if (document.body.classList.contains('dark')) {
+            setTheme('light');
+        } else {
+            setTheme('dark');
+        }
+    }
+    themeToggle.addEventListener('click', toggleTheme);
+    // On load, set theme from localStorage or system
+    const userTheme = localStorage.getItem('theme');
+    if (userTheme) {
+        setTheme(userTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        setTheme('dark');
+    } else {
+        setTheme('light');
+    }
     </script>
 </body>
 </html> 

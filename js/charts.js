@@ -30,10 +30,19 @@ class ChartsManager {
         const ctx = document.getElementById('stateChart');
         if (!ctx) return;
 
+        // Destroy previous chart if exists
+        if (this.stateChart) {
+            this.stateChart.destroy();
+            this.stateChart = null;
+        }
+
         let stateData = this.getStateDistribution(incidents);
+        let sortedStatesArr = Object.entries(stateData).sort(([,a], [,b]) => b - a);
+        if (sortedStatesArr.length === 0) {
+            ctx.parentElement.innerHTML = '<div class="text-center text-gray-400 py-12">No data available for state-wise distribution.</div>';
+            return;
+        }
         // Sort and limit to top 10
-        let sortedStatesArr = Object.entries(stateData)
-            .sort(([,a], [,b]) => b - a);
         let topStates = sortedStatesArr.slice(0, 10);
         let otherCount = sortedStatesArr.slice(10).reduce((sum, [,v]) => sum + v, 0);
         let labels = topStates.map(([k]) => this.truncateLabel(k));
@@ -94,10 +103,19 @@ class ChartsManager {
         const ctx = document.getElementById('incidentTypeChart');
         if (!ctx) return;
 
+        // Destroy previous chart if exists
+        if (this.incidentTypeChart) {
+            this.incidentTypeChart.destroy();
+            this.incidentTypeChart = null;
+        }
+
         let typeData = this.getIncidentTypeDistribution(incidents);
+        let sortedTypesArr = Object.entries(typeData).sort(([,a], [,b]) => b - a);
+        if (sortedTypesArr.length === 0) {
+            ctx.parentElement.innerHTML = '<div class="text-center text-gray-400 py-12">No data available for incident types.</div>';
+            return;
+        }
         // Sort and limit to top 10
-        let sortedTypesArr = Object.entries(typeData)
-            .sort(([,a], [,b]) => b - a);
         let topTypes = sortedTypesArr.slice(0, 10);
         let otherCount = sortedTypesArr.slice(10).reduce((sum, [,v]) => sum + v, 0);
         let labels = topTypes.map(([k]) => this.truncateLabel(k));

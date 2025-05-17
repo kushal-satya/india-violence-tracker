@@ -9,15 +9,15 @@
     }
     
     .card {
-        @apply bg-white rounded-xl shadow p-8 border border-primary-50;
+        @apply bg-white dark:bg-darkcard rounded-xl shadow p-8 border border-primary-50 dark:border-darkbg transition-colors duration-200;
     }
     
     .input-field {
-        @apply border border-primary-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 bg-primary-50 placeholder-gray-400 transition-colors duration-150;
+        @apply border border-primary-100 dark:border-darkbg rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 bg-primary-50 dark:bg-darkbg placeholder-gray-400 dark:placeholder-darktext transition-colors duration-150;
     }
     
     .select-field {
-        @apply border border-primary-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 bg-primary-50 transition-colors duration-150;
+        @apply border border-primary-100 dark:border-darkbg rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 bg-primary-50 dark:bg-darkbg transition-colors duration-150;
     }
     
     .responsive-container {
@@ -32,4 +32,8 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
+}
+
+body.dark {
+    @apply bg-darkbg text-darktext transition-colors duration-200;
 } 
