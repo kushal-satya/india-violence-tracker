@@ -96,7 +96,8 @@ class TableManager {
         });
 
         // Add pagination controls
-        const tableContainer = this.table.parentElement;
+        const paginationControls = document.getElementById('paginationControls');
+        paginationControls.innerHTML = '';
         const paginationContainer = document.createElement('div');
         paginationContainer.className = 'mt-4 flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6';
         paginationContainer.innerHTML = `
@@ -135,7 +136,7 @@ class TableManager {
                 </div>
             </div>
         `;
-        tableContainer.appendChild(paginationContainer);
+        paginationControls.appendChild(paginationContainer);
 
         // Add pagination event listeners
         document.getElementById('prevPage').addEventListener('click', () => {
