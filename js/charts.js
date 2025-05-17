@@ -30,20 +30,28 @@ class ChartsManager {
         const ctx = document.getElementById('stateChart');
         if (!ctx) return;
 
-        const stateData = this.getStateDistribution(incidents);
-        const sortedStates = Object.entries(stateData)
-            .sort(([,a], [,b]) => b - a)
-            .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
+        let stateData = this.getStateDistribution(incidents);
+        // Sort and limit to top 10
+        let sortedStatesArr = Object.entries(stateData)
+            .sort(([,a], [,b]) => b - a);
+        let topStates = sortedStatesArr.slice(0, 10);
+        let otherCount = sortedStatesArr.slice(10).reduce((sum, [,v]) => sum + v, 0);
+        let labels = topStates.map(([k]) => this.truncateLabel(k));
+        let values = topStates.map(([,v]) => v);
+        if (otherCount > 0) {
+            labels.push('Other');
+            values.push(otherCount);
+        }
 
         this.stateChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: Object.keys(sortedStates),
+                labels: labels,
                 datasets: [{
                     label: 'Number of Incidents',
-                    data: Object.values(sortedStates),
-                    backgroundColor: 'rgba(100, 116, 139, 0.5)', // slate-500
-                    borderColor: 'rgba(71, 85, 105, 1)', // slate-600
+                    data: values,
+                    backgroundColor: 'rgba(100, 116, 139, 0.5)',
+                    borderColor: 'rgba(71, 85, 105, 1)',
                     borderWidth: 1,
                     borderRadius: 4
                 }]
@@ -52,64 +60,32 @@ class ChartsManager {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false
-                    },
+                    legend: { display: false },
                     title: {
                         display: true,
                         text: 'Incidents by State',
-                        font: {
-                            size: 16,
-                            weight: '500'
-                        },
-                        color: '#334155' // slate-700
+                        font: { size: 16, weight: '500' },
+                        color: '#334155'
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#334155', // slate-700
-                        bodyColor: '#475569', // slate-600
-                        borderColor: '#E2E8F0', // slate-200
-                        borderWidth: 1,
-                        padding: 12,
-                        boxPadding: 6,
-                        usePointStyle: true,
                         callbacks: {
-                            label: function(context) {
-                                return `Incidents: ${context.raw}`;
-                            }
+                            title: (ctx) => sortedStatesArr[ctx[0].dataIndex]?.[0] || ctx[0].label
                         }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: {
-                            color: '#E2E8F0' // slate-200
-                        },
-                        ticks: {
-                            color: '#64748B' // slate-500
-                        },
-                        title: {
-                            display: true,
-                            text: 'Number of Incidents',
-                            color: '#475569' // slate-600
-                        }
+                        grid: { color: '#E2E8F0' },
+                        ticks: { color: '#64748B' },
+                        title: { display: true, text: 'Number of Incidents', color: '#475569' }
                     },
                     x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#64748B', // slate-500
-                            maxRotation: 45,
-                            minRotation: 45
-                        }
+                        grid: { display: false },
+                        ticks: { color: '#64748B', maxRotation: 45, minRotation: 45 }
                     }
                 },
-                animation: {
-                    duration: 750,
-                    easing: 'easeInOutQuart'
-                }
+                animation: { duration: 750, easing: 'easeInOutQuart' }
             }
         });
     }
@@ -118,21 +94,27 @@ class ChartsManager {
         const ctx = document.getElementById('incidentTypeChart');
         if (!ctx) return;
 
-        const typeData = this.getIncidentTypeDistribution(incidents);
-        const sortedTypes = Object.entries(typeData)
-            .sort(([,a], [,b]) => b - a)
-            .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {});
-
-        // Generate a color palette based on the number of types
-        const colors = this.generateColorPalette(Object.keys(sortedTypes).length);
+        let typeData = this.getIncidentTypeDistribution(incidents);
+        // Sort and limit to top 10
+        let sortedTypesArr = Object.entries(typeData)
+            .sort(([,a], [,b]) => b - a);
+        let topTypes = sortedTypesArr.slice(0, 10);
+        let otherCount = sortedTypesArr.slice(10).reduce((sum, [,v]) => sum + v, 0);
+        let labels = topTypes.map(([k]) => this.truncateLabel(k));
+        let values = topTypes.map(([,v]) => v);
+        if (otherCount > 0) {
+            labels.push('Other');
+            values.push(otherCount);
+        }
+        const colors = this.generateColorPalette(labels.length);
 
         this.incidentTypeChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: Object.keys(sortedTypes),
+                labels: labels,
                 datasets: [{
-                    data: Object.values(sortedTypes),
-                    backgroundColor: colors.map(c => `${c}80`), // 50% opacity
+                    data: values,
+                    backgroundColor: colors.map(c => `${c}80`),
                     borderColor: colors,
                     borderWidth: 1
                 }]
@@ -146,43 +128,32 @@ class ChartsManager {
                         position: 'right',
                         labels: {
                             padding: 20,
-                            color: '#475569', // slate-600
-                            font: {
-                                size: 12
-                            }
+                            color: '#475569',
+                            font: { size: 12 },
+                            boxWidth: 16,
+                            boxHeight: 16,
+                            usePointStyle: true,
+                            maxHeight: 200,
                         }
                     },
                     title: {
                         display: true,
                         text: 'Incidents by Type',
-                        font: {
-                            size: 16,
-                            weight: '500'
-                        },
-                        color: '#334155' // slate-700
+                        font: { size: 16, weight: '500' },
+                        color: '#334155'
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#334155', // slate-700
-                        bodyColor: '#475569', // slate-600
-                        borderColor: '#E2E8F0', // slate-200
-                        borderWidth: 1,
-                        padding: 12,
-                        boxPadding: 6,
-                        usePointStyle: true,
                         callbacks: {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((context.raw / total) * 100).toFixed(1);
                                 return `${context.label}: ${context.raw} (${percentage}%)`;
-                            }
+                            },
+                            title: (ctx) => sortedTypesArr[ctx[0].dataIndex]?.[0] || ctx[0].label
                         }
                     }
                 },
-                animation: {
-                    duration: 750,
-                    easing: 'easeInOutQuart'
-                }
+                animation: { duration: 750, easing: 'easeInOutQuart' }
             }
         });
     }
@@ -285,6 +256,11 @@ class ChartsManager {
         } catch (error) {
             console.error('Error updating charts:', error);
         }
+    }
+
+    truncateLabel(label, max = 16) {
+        if (!label) return '';
+        return label.length > max ? label.slice(0, max - 1) + '…' : label;
     }
 }
 
