@@ -19,4 +19,17 @@
     .select-field {
         @apply border border-primary-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 bg-primary-50 transition-colors duration-150;
     }
+    
+    .responsive-container {
+        @apply w-full overflow-hidden rounded-lg;
+    }
+    
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 } 

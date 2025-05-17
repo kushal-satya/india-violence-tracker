@@ -30,7 +30,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col">
+<body class="bg-gray-50 min-h-screen flex flex-col overflow-x-hidden">
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -89,18 +89,18 @@
             <!-- Map -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h2 class="text-xl font-semibold mb-4">Incident Map</h2>
-                <div id="mapContainer" class="h-[500px] rounded-lg"></div>
+                <div id="mapContainer" class="w-full min-h-[300px] h-[350px] sm:h-[400px] md:h-[500px] rounded-lg"></div>
             </div>
             
             <!-- Charts -->
             <div class="space-y-8">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-xl font-semibold mb-4">State-wise Distribution</h2>
-                    <canvas id="stateChart" class="h-64"></canvas>
+                    <canvas id="stateChart" class="w-full min-h-[200px] h-64"></canvas>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-xl font-semibold mb-4">Incident Types</h2>
-                    <canvas id="incidentTypeChart" class="h-64"></canvas>
+                    <canvas id="incidentTypeChart" class="w-full min-h-[200px] h-64"></canvas>
                 </div>
             </div>
         </div>
