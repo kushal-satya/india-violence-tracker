@@ -17,7 +17,7 @@ class MapManager {
 
         try {
             // Initialize the map centered on India
-            this.map = L.map('map', {
+            this.map = L.map('mapContainer', {
                 center: [20.5937, 78.9629],
                 zoom: 5,
                 zoomControl: false, // We'll add it in a better position
@@ -117,8 +117,10 @@ class MapManager {
             });
 
             incidents.forEach(incident => {
-                if (incident.Latitude && incident.Longitude) {
-                    const marker = L.marker([incident.Latitude, incident.Longitude])
+                const lat = Number(incident.Latitude);
+                const lng = Number(incident.Longitude);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const marker = L.marker([lat, lng])
                         .bindPopup(this.createPopupContent(incident));
                     markerClusterGroup.addLayer(marker);
                     this.markers.push(marker);
