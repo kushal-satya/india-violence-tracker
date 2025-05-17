@@ -293,35 +293,4 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 250);
     });
-});
-
-// Data fetching and initialization
-async function initializeDashboard() {
-    try {
-        // Show loading states
-        document.querySelectorAll('[id$="Count"]').forEach(el => {
-            el.textContent = 'Loading...';
-        });
-        document.getElementById('mostAffectedState').textContent = 'Loading...';
-        document.getElementById('lastUpdated').textContent = 'Loading...';
-
-        // Fetch data from Google Sheet
-        // TODO: Replace with your Google Sheet URL
-        // const response = await fetch('YOUR_GOOGLE_SHEET_URL');
-        const data = await response.json();
-
-        // Update dashboard with data
-        updateDashboard(data);
-    } catch (error) {
-        console.error('Error initializing dashboard:', error);
-        // Show error states
-        document.querySelectorAll('[id$="Count"]').forEach(el => {
-            el.textContent = 'Error loading data';
-        });
-        document.getElementById('mostAffectedState').textContent = 'Error loading data';
-        document.getElementById('lastUpdated').textContent = 'Error loading data';
-    }
-}
-
-// Initialize the dashboard when the page loads
-window.addEventListener('load', initializeDashboard); 
+}); 
