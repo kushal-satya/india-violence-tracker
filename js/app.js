@@ -307,7 +307,7 @@ async function initializeDashboard() {
 
         // Fetch data from Google Sheet
         // TODO: Replace with your Google Sheet URL
-        const response = await fetch('YOUR_GOOGLE_SHEET_URL');
+        // const response = await fetch('YOUR_GOOGLE_SHEET_URL');
         const data = await response.json();
 
         // Update dashboard with data
