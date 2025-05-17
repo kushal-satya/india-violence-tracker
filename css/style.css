@@ -1,0 +1,185 @@
+/* Custom styles beyond Tailwind CSS */
+
+/* Loading spinner */
+.loading {
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(255,255,255,.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Popup content (for map) */
+.popup-content {
+  max-width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Ensure the map container has a defined height (even if Tailwind's h-[...] is used) */
+#map {
+  min-height: 500px;
+}
+
+/* (Optional) –– if you want a "smooth" transition (for example, when filtering the table) –– */
+#incidentsTableBody tr {
+  transition: background-color 0.2s;
+}
+
+/* (Optional) –– if you'd like a "smooth" fade (for example, for the modal) –– */
+#incidentModal {
+  transition: opacity 0.2s;
+}
+
+/* (Optional) –– if you'd like a "smooth" fade (for example, for the modal) –– */
+#incidentModal.hidden {
+  opacity: 0;
+}
+
+/* (Optional) –– if you'd like a "smooth" fade (for example, for the modal) –– */
+#incidentModal:not(.hidden) {
+  opacity: 1;
+}
+
+/* (Optional) –– if you'd like a "smooth" fade (for example, for the modal) –– */
+#incidentModal .relative {
+  transition: transform 0.2s;
+}
+
+/* (Optional) –– if you'd like a "smooth" fade (for example, for the modal) –– */
+#incidentModal.hidden .relative {
+  transform: translateY(-20px);
+}
+
+/* (Optional) –– if you'd like a "smooth" fade (for example, for the modal) –– */
+#incidentModal:not(.hidden) .relative {
+  transform: translateY(0);
+}
+
+/* Custom styles for Dalit Violence Tracker Dashboard */
+
+/* Smooth transitions */
+.transition-all {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4F46E5;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4338CA;
+}
+
+/* Map container */
+#map {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Table styles */
+#incidentsTable {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#incidentsTable th {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    z-index: 10;
+}
+
+#incidentsTable tr:hover {
+    background-color: #f3f4f6;
+}
+
+/* Card hover effects */
+.bg-white.rounded-lg.shadow {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.bg-white.rounded-lg.shadow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Mobile menu animation */
+#mobileMenu {
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+#mobileMenu.hidden {
+    transform: translateY(-10px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Focus styles */
+:focus {
+    outline: 2px solid #4F46E5;
+    outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+    header, footer, #mobileMenuButton {
+        display: none !important;
+    }
+
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .bg-white {
+        background: none !important;
+        box-shadow: none !important;
+    }
+
+    #map {
+        page-break-inside: avoid;
+    }
+} 
