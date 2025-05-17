@@ -86,7 +86,6 @@ class App {
             await Promise.all([
                 this.updateUI(),
                 mapManager.initialize(dataManager.getIncidents()),
-                chartsManager.initialize(dataManager.getIncidents()),
                 tableManager.initialize(dataManager.getIncidents())
             ]);
         } catch (error) {
@@ -243,6 +242,23 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.remove('hidden');
         }
     };
+
+    const tabStatsBtn = document.getElementById('tab-stats');
+    const tabStatsPanel = document.getElementById('tabPanel-stats');
+    let chartsInitialized = false;
+    tabStatsBtn.addEventListener('click', async () => {
+        if (!chartsInitialized) {
+            // Show loading state
+            document.getElementById('stateChart').classList.add('animate-pulse', 'bg-gray-100');
+            document.getElementById('incidentTypeChart').classList.add('animate-pulse', 'bg-gray-100');
+            await chartsManager.initialize(dataManager.getIncidents());
+            document.getElementById('stateChart').classList.remove('animate-pulse', 'bg-gray-100');
+            document.getElementById('incidentTypeChart').classList.remove('animate-pulse', 'bg-gray-100');
+            chartsInitialized = true;
+        } else {
+            chartsManager.updateCharts(dataManager.getIncidents());
+        }
+    });
 });
 
 // Mobile menu functionality

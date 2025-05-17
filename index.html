@@ -61,23 +61,23 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="flex-grow max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-8 py-8">
         <!-- Tab Bar -->
-        <div class="mb-6 flex space-x-2 border-b border-gray-200" role="tablist">
-            <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-map" role="tab" aria-controls="tabPanel-map" aria-selected="true">Map</button>
-            <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-stats" role="tab" aria-controls="tabPanel-stats" aria-selected="false">Statistics</button>
-            <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-data" role="tab" aria-controls="tabPanel-data" aria-selected="false">Data</button>
-            <button class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-about" role="tab" aria-controls="tabPanel-about" aria-selected="false">About</button>
+        <div class="mb-6 flex flex-row space-x-2 border-b border-gray-200 bg-white rounded-t-lg shadow-sm px-2 md:px-6 py-2 sticky top-0 z-40" role="tablist">
+            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-map" role="tab" aria-controls="tabPanel-map" aria-selected="true">Map</button>
+            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-stats" role="tab" aria-controls="tabPanel-stats" aria-selected="false">Statistics</button>
+            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-data" role="tab" aria-controls="tabPanel-data" aria-selected="false">Data</button>
+            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-about" role="tab" aria-controls="tabPanel-about" aria-selected="false">About</button>
         </div>
         <!-- Tab Panels -->
-        <div id="tabPanel-map" class="tab-panel" role="tabpanel" aria-labelledby="tab-map">
+        <div id="tabPanel-map" class="tab-panel min-h-[400px]" role="tabpanel" aria-labelledby="tab-map">
             <!-- Map Section -->
             <div class="bg-white rounded-lg shadow p-6 mb-8">
                 <h2 class="text-xl font-semibold mb-4">Incident Map</h2>
                 <div id="mapContainer" class="w-full min-h-[300px] h-[350px] sm:h-[400px] md:h-[500px] rounded-lg"></div>
             </div>
         </div>
-        <div id="tabPanel-stats" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-stats">
+        <div id="tabPanel-stats" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-stats">
             <!-- Statistics Section -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8" id="stats">
                 <div class="bg-white rounded-lg shadow p-6">
@@ -93,7 +93,7 @@
                     <p class="mt-2 text-3xl font-bold text-indigo-600" id="mostAffectedState">Loading...</p>
                 </div>
             </div>
-            <div class="space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-xl font-semibold mb-4">State-wise Distribution</h2>
                     <canvas id="stateChart" class="w-full min-h-[200px] h-64"></canvas>
@@ -104,7 +104,7 @@
                 </div>
             </div>
         </div>
-        <div id="tabPanel-data" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-data">
+        <div id="tabPanel-data" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-data">
             <!-- Data Table Section -->
             <div class="bg-white rounded-lg shadow">
                 <div class="p-6">
@@ -142,7 +142,7 @@
                 </div>
             </div>
         </div>
-        <div id="tabPanel-about" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-about">
+        <div id="tabPanel-about" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-about">
             <!-- About Section -->
             <div class="mt-4 bg-white rounded-lg shadow p-6">
                 <h2 class="text-2xl font-semibold mb-4">About This Dashboard</h2>
