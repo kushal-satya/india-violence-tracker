@@ -281,15 +281,15 @@ class TableManager {
                 : 'Location not specified';
 
             row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${date}</td>
-                <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.Title)}</td>
-                <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(location)}</td>
-                <td class="px-6 py-4 text-sm">
+                <td class="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">${date}</td>
+                <td class="px-2 sm:px-4 py-4 text-sm text-gray-900 max-w-xs truncate">${this.escapeHtml(incident.Title)}</td>
+                <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">${this.escapeHtml(location)}</td>
+                <td class="px-2 sm:px-4 py-4 text-sm max-w-xs truncate">
                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
                         ${this.escapeHtml(incident['Incident Type'] || 'Not specified')}
                     </span>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-500">
+                <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">
                     ${incident['Source URL'] ? `
                         <a href="${this.escapeHtml(incident['Source URL'])}" 
                            target="_blank" 
