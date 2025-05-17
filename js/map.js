@@ -6,88 +6,169 @@ class MapManager {
         this.map = null;
         this.markers = [];
         this.heatmapLayer = null;
+        this.initialized = false;
     }
 
-    initialize() {
-        // Initialize the map centered on India
-        this.map = L.map('map').setView([20.5937, 78.9629], 5);
+    async initialize(incidents) {
+        if (this.initialized) {
+            this.updateMarkers(incidents);
+            return;
+        }
 
-        // Add the base tile layer (OpenStreetMap)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(this.map);
+        try {
+            // Initialize the map centered on India
+            this.map = L.map('map', {
+                center: [20.5937, 78.9629],
+                zoom: 5,
+                zoomControl: false, // We'll add it in a better position
+                attributionControl: false // We'll add it in a better position
+            });
 
-        // Add satellite layer option
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        });
+            // Add zoom control in a better position
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(this.map);
 
-        // Add layer control
-        const baseMaps = {
-            "Street Map": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }),
-            "Satellite": satelliteLayer
-        };
+            // Add attribution in a better position
+            L.control.attribution({
+                position: 'bottomleft'
+            }).addTo(this.map);
 
-        L.control.layers(baseMaps).addTo(this.map);
+            // Add the base tile layer (OpenStreetMap)
+            const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(this.map);
 
-        // Initialize heatmap layer
-        this.initializeHeatmap();
+            // Add satellite layer option
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 19
+            });
+
+            // Add layer control
+            const baseMaps = {
+                "Street Map": osmLayer,
+                "Satellite": satelliteLayer
+            };
+
+            L.control.layers(baseMaps, null, {
+                position: 'topright',
+                collapsed: false
+            }).addTo(this.map);
+
+            // Add a loading indicator
+            const loadingControl = L.Control.extend({
+                onAdd: function() {
+                    const div = L.DomUtil.create('div', 'leaflet-control leaflet-bar loading-indicator hidden');
+                    div.innerHTML = `
+                        <div class="bg-white p-2 rounded shadow">
+                            <div class="animate-spin h-5 w-5 border-2 border-primary-600 border-t-transparent rounded-full"></div>
+                        </div>
+                    `;
+                    return div;
+                }
+            });
+            this.loadingIndicator = new loadingControl({ position: 'topright' }).addTo(this.map);
+
+            this.initialized = true;
+            this.updateMarkers(incidents);
+        } catch (error) {
+            console.error('Error initializing map:', error);
+            throw new Error('Failed to initialize map');
+        }
     }
 
-    initializeHeatmap() {
-        // Create a heatmap layer (you'll need to include the Leaflet.heat plugin)
-        // This is a placeholder - you'll need to add the actual heatmap library
-        // this.heatmapLayer = L.heatLayer([], {radius: 25}).addTo(this.map);
+    showLoading() {
+        if (this.loadingIndicator) {
+            this.loadingIndicator.getContainer().classList.remove('hidden');
+        }
+    }
+
+    hideLoading() {
+        if (this.loadingIndicator) {
+            this.loadingIndicator.getContainer().classList.add('hidden');
+        }
     }
 
     updateMarkers(incidents) {
-        // Clear existing markers
-        this.clearMarkers();
+        if (!this.initialized) return;
 
-        // Add new markers
-        incidents.forEach(incident => {
-            if (incident.latitude && incident.longitude) {
-                const marker = L.marker([incident.latitude, incident.longitude])
-                    .bindPopup(this.createPopupContent(incident));
-                marker.addTo(this.map);
-                this.markers.push(marker);
-            }
-        });
+        this.showLoading();
+        
+        try {
+            // Clear existing markers
+            this.clearMarkers();
 
-        // Update heatmap if available
-        if (this.heatmapLayer) {
-            const heatmapData = incidents
-                .filter(incident => incident.latitude && incident.longitude)
-                .map(incident => [incident.latitude, incident.longitude, 1]);
-            this.heatmapLayer.setLatLngs(heatmapData);
+            // Add new markers
+            const markerClusterGroup = L.markerClusterGroup({
+                maxClusterRadius: 50,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    return L.divIcon({
+                        html: `<div class="bg-primary-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">${count}</div>`,
+                        className: 'marker-cluster',
+                        iconSize: L.point(32, 32)
+                    });
+                }
+            });
+
+            incidents.forEach(incident => {
+                if (incident.Latitude && incident.Longitude) {
+                    const marker = L.marker([incident.Latitude, incident.Longitude])
+                        .bindPopup(this.createPopupContent(incident));
+                    markerClusterGroup.addLayer(marker);
+                    this.markers.push(marker);
+                }
+            });
+
+            this.map.addLayer(markerClusterGroup);
+        } catch (error) {
+            console.error('Error updating markers:', error);
+        } finally {
+            this.hideLoading();
         }
     }
 
     clearMarkers() {
-        this.markers.forEach(marker => marker.remove());
+        this.markers.forEach(marker => {
+            if (marker.getParentGroup()) {
+                marker.getParentGroup().removeLayer(marker);
+            } else {
+                marker.remove();
+            }
+        });
         this.markers = [];
     }
 
     createPopupContent(incident) {
+        const date = incident['Date of Incident'] ? new Date(incident['Date of Incident']).toLocaleDateString() : 'N/A';
         return `
-            <div class="popup-content">
-                <h3 class="font-bold">${incident.title}</h3>
-                <p class="text-sm">${incident.description}</p>
-                <p class="text-sm mt-2">
-                    <strong>Location:</strong> ${incident.location}<br>
-                    <strong>Date:</strong> ${new Date(incident.incident_date).toLocaleDateString()}<br>
-                    <strong>Type:</strong> ${incident.incident_type}
-                </p>
-                <a href="${incident.url}" target="_blank" class="text-blue-600 hover:underline text-sm">Read more</a>
+            <div class="popup-content p-2">
+                <h3 class="font-bold text-primary-700">${this.escapeHtml(incident.Title)}</h3>
+                <div class="mt-2 space-y-1 text-sm text-gray-600">
+                    <p><strong>Date:</strong> ${date}</p>
+                    <p><strong>Location:</strong> ${this.escapeHtml(incident.Location || 'N/A')}, ${this.escapeHtml(incident.State || 'N/A')}</p>
+                    <p><strong>Type:</strong> ${this.escapeHtml(incident['Incident Type'] || 'N/A')}</p>
+                    <p><strong>Community:</strong> ${this.escapeHtml(incident['Victim Community'] || 'N/A')}</p>
+                </div>
+                ${incident['Source URL'] ? 
+                    `<a href="${this.escapeHtml(incident['Source URL'])}" target="_blank" class="mt-2 inline-block text-primary-600 hover:text-primary-700 text-sm">View Source →</a>` : 
+                    ''}
             </div>
         `;
     }
 
-    updateMap(filters = {}) {
-        const filteredIncidents = dataManager.filterIncidents(filters);
-        this.updateMarkers(filteredIncidents);
+    escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 }
 

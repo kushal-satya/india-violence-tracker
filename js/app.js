@@ -36,6 +36,12 @@ class App {
                 </tr>
             `;
         }
+
+        // Add loading state to charts
+        const chartContainers = document.querySelectorAll('canvas');
+        chartContainers.forEach(container => {
+            container.parentElement.classList.add('animate-pulse', 'bg-gray-200', 'rounded');
+        });
     }
 
     initializeEventListeners() {
@@ -67,11 +73,22 @@ class App {
     async loadData() {
         try {
             const success = await dataManager.fetchData();
-            if (success) {
-                this.updateUI();
-            } else {
-                this.showError('Failed to load data. Please try again later.');
+            if (!success) {
+                if (dataManager.error) {
+                    this.showError(dataManager.error);
+                } else {
+                    this.showError('Failed to load data. Please try again later.');
+                }
+                return;
             }
+            
+            // Update all UI components
+            await Promise.all([
+                this.updateUI(),
+                mapManager.initialize(dataManager.getIncidents()),
+                chartsManager.initialize(dataManager.getIncidents()),
+                tableManager.initialize(dataManager.getIncidents())
+            ]);
         } catch (error) {
             console.error('Error loading data:', error);
             this.showError('An error occurred while loading data.');
@@ -162,13 +179,17 @@ class App {
     }
 
     showError(message) {
+        // Remove any existing error notifications
+        const existingNotifications = document.querySelectorAll('.error-notification');
+        existingNotifications.forEach(n => n.remove());
+
         // Create error notification
         const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded';
+        notification.className = 'error-notification fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50';
         notification.innerHTML = `
             <strong class="font-bold">Error!</strong>
             <span class="block sm:inline"> ${message}</span>
-            <button class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="this.parentElement.remove()">
+            <button class="absolute top-0 bottom-0 right-0 px-4 py-3 hover:bg-red-200 rounded-r" onclick="this.parentElement.remove()">
                 <span class="sr-only">Dismiss</span>
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -193,27 +214,30 @@ class App {
 
 // Initialize the app when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new App();
+    const app = new App();
+    
+    // Make app instance globally available for debugging
+    window.app = app;
     
     // Make incident details function globally available
     window.showIncidentDetails = (incidentId) => {
         const incident = dataManager.getIncidents().find(i => i['Incident ID'] === incidentId);
         if (!incident) return;
-
+        
         const modal = document.getElementById('incidentModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
-
+        
         if (modal && modalTitle && modalContent) {
             modalTitle.textContent = incident.Title;
             modalContent.innerHTML = `
                 <div class="space-y-2">
                     <p><strong>Date:</strong> ${incident['Date of Incident'] ? new Date(incident['Date of Incident']).toLocaleDateString() : 'N/A'}</p>
-                    <p><strong>Location:</strong> ${incident.Location || 'N/A'}, ${incident.State || 'N/A'}</p>
-                    <p><strong>Type:</strong> ${incident['Incident Type'] || 'N/A'}</p>
-                    <p><strong>Community:</strong> ${incident['Victim Community'] || 'N/A'}</p>
-                    <p><strong>Source:</strong> ${incident['Source Name'] || 'N/A'}</p>
-                    ${incident['Source URL'] ? `<p><a href="${incident['Source URL']}" target="_blank" class="text-indigo-600 hover:text-indigo-900">View Source</a></p>` : ''}
+                    <p><strong>Location:</strong> ${app.escapeHtml(incident.Location || 'N/A')}, ${app.escapeHtml(incident.State || 'N/A')}</p>
+                    <p><strong>Type:</strong> ${app.escapeHtml(incident['Incident Type'] || 'N/A')}</p>
+                    <p><strong>Community:</strong> ${app.escapeHtml(incident['Victim Community'] || 'N/A')}</p>
+                    <p><strong>Description:</strong> ${app.escapeHtml(incident.Description || 'N/A')}</p>
+                    ${incident['Source URL'] ? `<p><strong>Source:</strong> <a href="${app.escapeHtml(incident['Source URL'])}" target="_blank" class="text-primary-600 hover:text-primary-700">View Source</a></p>` : ''}
                 </div>
             `;
             modal.classList.remove('hidden');

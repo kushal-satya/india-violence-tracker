@@ -10,19 +10,40 @@ class DataManager {
             monthlyCount: 0,
             mostAffectedState: 'N/A'
         };
+        this.loading = false;
+        this.error = null;
     }
 
     async fetchData() {
+        if (this.loading) return false;
+        
+        this.loading = true;
+        this.error = null;
+        
         try {
             const response = await fetch(DATA_URL);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const csvText = await response.text();
+            if (!csvText.trim()) {
+                throw new Error('Empty data received');
+            }
+            
             this.incidents = this.parseCSV(csvText);
+            if (this.incidents.length === 0) {
+                throw new Error('No valid incidents found in data');
+            }
+            
             this.lastUpdated = new Date().toISOString();
             this.updateStats();
             return true;
         } catch (error) {
             console.error('Error fetching data:', error);
+            this.error = error.message;
             return false;
+        } finally {
+            this.loading = false;
         }
     }
 
