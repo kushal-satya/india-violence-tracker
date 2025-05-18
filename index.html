@@ -83,6 +83,8 @@
 
     <!-- Main Content -->
     <main class="flex-grow container-custom py-8">
+        <!-- DEBUG: Show All Tabs Button -->
+        <button id="showAllTabsBtn" class="mb-4 px-4 py-2 bg-red-100 text-red-700 rounded shadow hover:bg-red-200">Show All Tabs (Debug)</button>
         <!-- Desktop Tab Bar -->
         <div class="hidden md:flex space-x-1 border-b border-gray-200 dark:border-gray-700 mb-8" role="tablist">
             <button class="tab-btn tab-btn-active" id="tab-map" role="tab" aria-controls="tabPanel-map" aria-selected="true">Map</button>
@@ -272,8 +274,10 @@
     const mobileMenu = document.getElementById('mobileMenu');
     const mobileMenuButton = document.getElementById('mobileMenuButton');
     const closeMobileMenu = document.getElementById('closeMobileMenu');
+    const showAllTabsBtn = document.getElementById('showAllTabsBtn');
 
     function switchTab(tabId) {
+        console.log('Switching to tab:', tabId); // DEBUG
         // Update desktop tabs
         tabBtns.forEach(btn => {
             const isActive = btn.id === `tab-${tabId}`;
@@ -292,6 +296,11 @@
             mobileMenu.classList.add('mobile-menu-closed');
         }
     }
+
+    // DEBUG: Show all tab panels
+    showAllTabsBtn.addEventListener('click', () => {
+        tabPanels.forEach(panel => panel.classList.remove('hidden'));
+    });
 
     // Desktop tab click handlers
     tabBtns.forEach(btn => {
