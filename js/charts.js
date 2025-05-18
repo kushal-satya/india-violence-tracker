@@ -23,6 +23,16 @@ class ChartsManager {
                 dark: 'rgba(16, 185, 129, 1)'
             }
         };
+        // Add observer for dark mode changes
+        const observer = new MutationObserver(() => {
+            if (this.initialized) {
+                this.updateCharts(dataManager.getIncidents());
+            }
+        });
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
     }
 
     async initialize(incidents) {

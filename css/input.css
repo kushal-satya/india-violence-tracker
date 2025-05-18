@@ -101,6 +101,10 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  .tab-panel {
+    @apply bg-white dark:bg-darkbg rounded-xl shadow-card p-6 border border-gray-100 dark:border-gray-800 transition-colors duration-200;
+  }
 }
 
 /* Dark mode transitions */

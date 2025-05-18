@@ -85,14 +85,10 @@ class MapManager {
             this.updateMapStyle();
 
             // Listen for theme changes
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.attributeName === 'class') {
-                        this.updateMapStyle();
-                    }
-                });
+            const observer = new MutationObserver(() => {
+                this.updateMapStyle();
+                this.updateMap(this.incidents);
             });
-
             observer.observe(document.documentElement, {
                 attributes: true,
                 attributeFilter: ['class']

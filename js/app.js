@@ -45,15 +45,6 @@ class App {
     }
 
     initializeEventListeners() {
-        // Mobile menu toggle
-        const mobileMenuButton = document.getElementById('mobileMenuButton');
-        const mobileMenu = document.getElementById('mobileMenu');
-        if (mobileMenuButton && mobileMenu) {
-            mobileMenuButton.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-            });
-        }
-
         // Modal close button
         const closeModal = document.getElementById('closeModal');
         const modal = document.getElementById('incidentModal');
@@ -214,19 +205,13 @@ class App {
 // Initialize the app when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const app = new App();
-    
-    // Make app instance globally available for debugging
     window.app = app;
-    
-    // Make incident details function globally available
     window.showIncidentDetails = (incidentId) => {
         const incident = dataManager.getIncidents().find(i => i['Incident ID'] === incidentId);
         if (!incident) return;
-        
         const modal = document.getElementById('incidentModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
-        
         if (modal && modalTitle && modalContent) {
             modalTitle.textContent = incident.Title;
             modalContent.innerHTML = `
@@ -242,71 +227,5 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.remove('hidden');
         }
     };
-
-    const tabStatsBtn = document.getElementById('tab-stats');
-    const tabStatsPanel = document.getElementById('tabPanel-stats');
-    let chartsInitialized = false;
-    tabStatsBtn.addEventListener('click', async () => {
-        if (!chartsInitialized) {
-            // Show loading state
-            document.getElementById('stateChart').classList.add('animate-pulse', 'bg-gray-100');
-            document.getElementById('incidentTypeChart').classList.add('animate-pulse', 'bg-gray-100');
-            await chartsManager.initialize(dataManager.getIncidents());
-            document.getElementById('stateChart').classList.remove('animate-pulse', 'bg-gray-100');
-            document.getElementById('incidentTypeChart').classList.remove('animate-pulse', 'bg-gray-100');
-            chartsInitialized = true;
-        } else {
-            chartsManager.updateCharts(dataManager.getIncidents());
-        }
-    });
-});
-
-// Mobile menu functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const mobileMenuButton = document.getElementById('mobileMenuButton');
-    const mobileMenu = document.getElementById('mobileMenu');
-    
-    if (mobileMenuButton && mobileMenu) {
-        mobileMenuButton.addEventListener('click', () => {
-            mobileMenu.classList.toggle('hidden');
-        });
-    }
-
-    // Smooth scrolling for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-                // Close mobile menu if open
-                if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
-                    mobileMenu.classList.add('hidden');
-                }
-            }
-        });
-    });
-
-    // Close mobile menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (mobileMenu && !mobileMenu.classList.contains('hidden') && 
-            !mobileMenu.contains(e.target) && 
-            !mobileMenuButton.contains(e.target)) {
-            mobileMenu.classList.add('hidden');
-        }
-    });
-
-    // Handle window resize
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-            if (window.innerWidth >= 768 && mobileMenu) { // 768px is md breakpoint
-                mobileMenu.classList.add('hidden');
-            }
-        }, 250);
-    });
+    // No legacy tab or mobile menu logic here!
 }); 
