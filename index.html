@@ -3,690 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple India Violence Tracker</title>
+    <title>India Violence Tracker</title>
+    <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-        body {
-            background-color: #f9fafb;
-            color: #111827;
-            line-height: 1.5;
-        }
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-        }
-        header {
-            background-color: #fff;
-            padding: 1.5rem 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        p {
-            margin-top: 0.25rem;
-            color: #4b5563;
-        }
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0;
-        }
-        .stat-card {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        .stat-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #6b7280;
-            margin-bottom: 0.25rem;
-        }
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #2563eb;
-        }
-        .stat-caption {
-            font-size: 0.875rem;
-            color: #6b7280;
-            margin-top: 0.25rem;
-        }
-        #mapContainer {
-            height: 500px;
-            border-radius: 0.5rem;
-            margin-bottom: 2rem;
-            border: 1px solid #e5e7eb;
-        }
-        .section {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-        footer {
-            background-color: #fff;
-            padding: 1.5rem 0;
-            text-align: center;
-            margin-top: 2rem;
-            border-top: 1px solid #e5e7eb;
-            color: #6b7280;
-            font-size: 0.875rem;
-        }
-        .loading {
-            background-color: #e5e7eb;
-            height: 2rem;
-            border-radius: 0.25rem;
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.5;
-            }
-        }
-        .error {
-            background-color: #fee2e2;
-            color: #b91c1c;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin: 1rem 0;
-            text-align: center;
-        }
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 3px solid #3498db;
-            width: 24px;
-            height: 24px;
-            -webkit-animation: spin 2s linear infinite;
-            animation: spin 2s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Table styles */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .data-table th {
-            background-color: #f9fafb;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: #4b5563;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .data-table td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 0.875rem;
-            color: #374151;
-        }
-        .data-table tr:hover {
-            background-color: #f9fafb;
-        }
-        .data-table a {
-            color: #2563eb;
-            text-decoration: none;
-        }
-        .data-table a:hover {
-            text-decoration: underline;
-        }
-        /* Filter styles */
-        .filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-        .filter-label {
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: #4b5563;
-        }
-        .filter-select {
-            padding: 0.5rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.375rem;
-            background-color: white;
-            font-size: 0.875rem;
-            color: #374151;
-            min-width: 180px;
-        }
-        .filter-select:focus {
-            outline: none;
-            border-color: #2563eb;
-            ring: 2px solid rgba(37, 99, 235, 0.2);
-        }
-        .clear-filters {
-            margin-left: auto;
-            align-self: flex-end;
-            padding: 0.5rem 1rem;
-            background-color: #f3f4f6;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.375rem;
-            color: #4b5563;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .clear-filters:hover {
-            background-color: #e5e7eb;
-        }
-        /* Data source switch */
-        .data-source-switch {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-top: 1rem;
-            gap: 1rem;
-        }
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 24px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #2563eb;
-        }
-        input:focus + .slider {
-            box-shadow: 0 0 1px #2563eb;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        .switch-label {
-            font-size: 0.875rem;
-            color: #4b5563;
-        }
-    </style>
 </head>
-<body>
-    <header>
-        <div class="container">
-            <h1>India Violence Tracker</h1>
-            <p>Real-time tracking of violence incidents from news sources across India.</p>
-            <div class="data-source-switch">
-                <span class="switch-label">Use Live Data</span>
-                <label class="switch">
-                    <input type="checkbox" id="dataSourceToggle" checked>
-                    <span class="slider"></span>
-                </label>
-                <span class="switch-label">Use Mock Data</span>
+<body class="bg-gray-50 text-gray-900">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="container-custom py-6">
+            <h1 class="text-2xl font-bold">India Violence Tracker</h1>
+            <p class="text-base text-gray-600 mt-1">Real-time tracking of violence incidents from news sources across India.</p>
+            <div class="mt-4">
+                <a href="simple.html" class="inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">View Simple Version</a>
             </div>
         </div>
     </header>
 
-    <main class="container">
-        <div id="errorContainer"></div>
-        
-        <div class="stats-container">
-            <div class="stat-card">
-                <div class="stat-label">This Week</div>
-                <div id="weeklyCount" class="stat-value"><div class="loader"></div></div>
-                <div class="stat-caption">Incidents</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">This Month</div>
-                <div id="monthlyCount" class="stat-value"><div class="loader"></div></div>
-                <div class="stat-caption">Incidents</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Total</div>
-                <div id="totalCount" class="stat-value"><div class="loader"></div></div>
-                <div class="stat-caption">Incidents</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">Incident Map</h2>
-            <div id="mapContainer"></div>
-        </div>
-        
-        <div class="section">
-            <h2 class="section-title">Recent Incidents</h2>
-            <div class="filters">
-                <div class="filter-group">
-                    <label for="stateFilter" class="filter-label">Filter by State</label>
-                    <select id="stateFilter" class="filter-select">
-                        <option value="">All States</option>
-                    </select>
+    <!-- Main Content -->
+    <main class="container-custom py-8">
+        <!-- Stats Row -->
+        <section>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card flex flex-col items-center text-center py-6">
+                    <span class="text-xs uppercase tracking-wider text-gray-500 mb-1">This Week</span>
+                    <span class="text-4xl font-extrabold text-blue-600" id="weeklyCount">0</span>
+                    <span class="text-sm text-gray-500 mt-1">Incidents</span>
                 </div>
-                <div class="filter-group">
-                    <label for="typeFilter" class="filter-label">Filter by Incident Type</label>
-                    <select id="typeFilter" class="filter-select">
-                        <option value="">All Types</option>
-                    </select>
+                <div class="card flex flex-col items-center text-center py-6">
+                    <span class="text-xs uppercase tracking-wider text-gray-500 mb-1">This Month</span>
+                    <span class="text-4xl font-extrabold text-blue-600" id="monthlyCount">0</span>
+                    <span class="text-sm text-gray-500 mt-1">Incidents</span>
                 </div>
-                <button id="clearFilters" class="clear-filters">Clear Filters</button>
+                <div class="card flex flex-col items-center text-center py-6">
+                    <span class="text-xs uppercase tracking-wider text-gray-500 mb-1">Total</span>
+                    <span class="text-4xl font-extrabold text-blue-600" id="totalCount">0</span>
+                    <span class="text-sm text-gray-500 mt-1">Incidents</span>
+                </div>
             </div>
-            <div class="table-responsive" style="overflow-x: auto;">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Title</th>
-                            <th>Location</th>
-                            <th>Incident Type</th>
-                            <th>Source</th>
-                        </tr>
-                    </thead>
-                    <tbody id="incidentsTable">
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 2rem 0;">
-                                <div class="loader"></div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        </section>
+        <!-- Map Section -->
+        <section class="mt-8">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4">Incident Map</h2>
+                <div id="mapContainer" class="w-full bg-gray-100 rounded-lg min-h-[350px] h-[500px]"></div>
             </div>
-        </div>
+        </section>
     </main>
 
-    <footer>
-        <div class="container">
-            <div>© <span id="currentYear">2023</span> India Violence Tracker. All rights reserved.</div>
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="container-custom py-6 text-center">
+            <div class="text-sm text-gray-500">© <span id="currentYear">2023</span> India Violence Tracker. All rights reserved.</div>
         </div>
     </footer>
 
-    <script src="mock_data.js"></script>
+    <!-- Scripts -->
+    <script type="module" src="js/data.js"></script>
+    <script type="module" src="js/map.js"></script>
+    <script type="module" src="js/charts.js"></script>
+    <script type="module" src="js/table.js"></script>
+    <script type="module" src="js/app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set current year
-            document.getElementById('currentYear').textContent = new Date().getFullYear();
-            
-            // Data URL
-            const DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
-            
-            // Get data source toggle
-            const dataSourceToggle = document.getElementById('dataSourceToggle');
-            
-            // Load data based on current toggle state
-            loadData(dataSourceToggle.checked);
-            
-            // Add event listener for toggle change
-            dataSourceToggle.addEventListener('change', function() {
-                loadData(this.checked);
-            });
-            
-            function loadData(useLiveData) {
-                // Reset UI to loading state
-                resetUI();
-                
-                if (useLiveData) {
-                    // Fetch live data
-                    fetchLiveData();
-                } else {
-                    // Use mock data
-                    try {
-                        const processedData = processData(window.mockData || []);
-                        updateStats(processedData);
-                        initializeMap(processedData);
-                    } catch (error) {
-                        console.error('Error using mock data:', error);
-                        showError('Failed to load mock data. Please check the console for details.');
-                    }
-                }
-            }
-            
-            function resetUI() {
-                // Reset stats
-                document.getElementById('weeklyCount').innerHTML = '<div class="loader"></div>';
-                document.getElementById('monthlyCount').innerHTML = '<div class="loader"></div>';
-                document.getElementById('totalCount').innerHTML = '<div class="loader"></div>';
-                
-                // Reset table
-                document.getElementById('incidentsTable').innerHTML = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 2rem 0;">
-                            <div class="loader"></div>
-                        </td>
-                    </tr>
-                `;
-                
-                // Clear error messages
-                document.getElementById('errorContainer').innerHTML = '';
-            }
-            
-            function fetchLiveData() {
-                fetch(DATA_URL)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        return response.text();
-                    })
-                    .then(csvText => {
-                        if (!csvText.trim()) {
-                            throw new Error('Empty data received');
-                        }
-                        
-                        // Parse CSV with Papa Parse
-                        Papa.parse(csvText, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: function(results) {
-                                if (results.data.length === 0) {
-                                    throw new Error('No valid incidents found in data');
-                                }
-                                
-                                // Process the data
-                                const incidents = processData(results.data);
-                                
-                                // Update UI
-                                updateStats(incidents);
-                                initializeMap(incidents);
-                            },
-                            error: function(error) {
-                                throw new Error('Failed to parse CSV data: ' + error.message);
-                            }
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showError(error.message);
-                    });
-            }
-        });
-
-        function processData(data) {
-            return data.map(incident => {
-                // Process dates
-                if (incident['Date of Incident']) {
-                    try {
-                        incident['Date of Incident'] = new Date(incident['Date of Incident']);
-                    } catch (e) {
-                        incident['Date of Incident'] = null;
-                    }
-                }
-                
-                // Process coordinates
-                if (incident.Latitude && incident.Longitude) {
-                    incident.Latitude = parseFloat(incident.Latitude);
-                    incident.Longitude = parseFloat(incident.Longitude);
-                }
-                
-                return incident;
-            });
-        }
-
-        function showError(message) {
-            const errorContainer = document.getElementById('errorContainer');
-            errorContainer.innerHTML = `
-                <div class="error">
-                    <strong>Error:</strong> ${message}
-                </div>
-            `;
-        }
-
-        function updateStats(incidents) {
-            const now = new Date();
-            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-            // Count incidents by time period
-            const weeklyCount = incidents.filter(incident => 
-                incident['Date of Incident'] && incident['Date of Incident'] >= oneWeekAgo
-            ).length;
-
-            const monthlyCount = incidents.filter(incident => 
-                incident['Date of Incident'] && incident['Date of Incident'] >= oneMonthAgo
-            ).length;
-
-            const totalCount = incidents.length;
-
-            // Update UI
-            document.getElementById('weeklyCount').textContent = weeklyCount;
-            document.getElementById('monthlyCount').textContent = monthlyCount;
-            document.getElementById('totalCount').textContent = totalCount;
-        }
-
-        function initializeMap(incidents) {
-            // Initialize map
-            const map = L.map('mapContainer').setView([22.5937, 78.9629], 5); // Center on India
-            
-            // Add tile layer
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-            
-            // Create marker cluster group
-            const markers = L.markerClusterGroup({
-                chunkedLoading: true,
-                maxClusterRadius: 50,
-                spiderfyOnMaxZoom: true,
-                showCoverageOnHover: false
-            });
-            
-            // Add markers for each incident with valid coordinates
-            let validMarkers = 0;
-            
-            incidents.forEach(incident => {
-                if (incident.Latitude && incident.Longitude && 
-                    !isNaN(incident.Latitude) && !isNaN(incident.Longitude)) {
-                    
-                    const marker = L.marker([incident.Latitude, incident.Longitude]);
-                    
-                    // Popup content
-                    const popupContent = `
-                        <div style="max-width: 300px">
-                            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">${escapeHtml(incident.Title || 'Unknown Incident')}</h3>
-                            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                <strong>Date:</strong> ${incident['Date of Incident'] ? incident['Date of Incident'].toLocaleDateString() : 'N/A'}
-                            </p>
-                            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                <strong>Location:</strong> ${escapeHtml(incident.Location || 'N/A')}, ${escapeHtml(incident.State || 'N/A')}
-                            </p>
-                            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                <strong>Type:</strong> ${escapeHtml(incident['Incident Type'] || 'N/A')}
-                            </p>
-                            ${incident['Source URL'] ? 
-                            `<p style="font-size: 0.875rem;">
-                                <a href="${escapeHtml(incident['Source URL'])}" target="_blank" style="color: #4f46e5; text-decoration: underline;">View Source</a>
-                            </p>` : ''}
-                        </div>
-                    `;
-                    
-                    marker.bindPopup(popupContent);
-                    markers.addLayer(marker);
-                    validMarkers++;
-                }
-            });
-            
-            // Add markers to map
-            map.addLayer(markers);
-            
-            // Add info about markers
-            if (validMarkers === 0) {
-                document.getElementById('mapContainer').insertAdjacentHTML('afterend', 
-                    `<div class="error">No incidents with valid coordinates found for mapping.</div>`);
-            }
-            
-            // Set up filters
-            setupFilters(incidents);
-            
-            // Update table with recent incidents
-            updateRecentIncidentsTable(incidents);
-        }
-        
-        function setupFilters(incidents) {
-            const stateFilter = document.getElementById('stateFilter');
-            const typeFilter = document.getElementById('typeFilter');
-            const clearFiltersBtn = document.getElementById('clearFilters');
-            
-            // Get unique states
-            const states = [...new Set(incidents
-                .filter(incident => incident.State)
-                .map(incident => incident.State)
-            )].sort();
-            
-            // Get unique incident types
-            const types = [...new Set(incidents
-                .filter(incident => incident['Incident Type'])
-                .map(incident => incident['Incident Type'])
-            )].sort();
-            
-            // Populate state filter
-            states.forEach(state => {
-                const option = document.createElement('option');
-                option.value = state;
-                option.textContent = state;
-                stateFilter.appendChild(option);
-            });
-            
-            // Populate type filter
-            types.forEach(type => {
-                const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                typeFilter.appendChild(option);
-            });
-            
-            // Set up event listeners
-            stateFilter.addEventListener('change', () => filterIncidents(incidents));
-            typeFilter.addEventListener('change', () => filterIncidents(incidents));
-            clearFiltersBtn.addEventListener('click', () => {
-                stateFilter.value = '';
-                typeFilter.value = '';
-                filterIncidents(incidents);
-            });
-        }
-        
-        function filterIncidents(incidents) {
-            const stateFilter = document.getElementById('stateFilter').value;
-            const typeFilter = document.getElementById('typeFilter').value;
-            
-            let filteredIncidents = incidents;
-            
-            // Apply state filter
-            if (stateFilter) {
-                filteredIncidents = filteredIncidents.filter(incident => incident.State === stateFilter);
-            }
-            
-            // Apply type filter
-            if (typeFilter) {
-                filteredIncidents = filteredIncidents.filter(incident => incident['Incident Type'] === typeFilter);
-            }
-            
-            // Update table with filtered incidents
-            updateRecentIncidentsTable(filteredIncidents);
-        }
-        
-        function updateRecentIncidentsTable(incidents) {
-            const tableBody = document.getElementById('incidentsTable');
-            
-            // Sort incidents by date (newest first)
-            const sortedIncidents = [...incidents].sort((a, b) => {
-                if (!a['Date of Incident']) return 1;
-                if (!b['Date of Incident']) return -1;
-                return b['Date of Incident'] - a['Date of Incident'];
-            });
-            
-            // Get the 10 most recent incidents
-            const recentIncidents = sortedIncidents.slice(0, 10);
-            
-            if (recentIncidents.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 1rem 0;">
-                            No incidents found
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            // Generate table rows
-            tableBody.innerHTML = recentIncidents.map(incident => `
-                <tr>
-                    <td>${incident['Date of Incident'] ? incident['Date of Incident'].toLocaleDateString() : 'N/A'}</td>
-                    <td>${escapeHtml(incident.Title || 'Unknown')}</td>
-                    <td>${escapeHtml(incident.Location || 'N/A')}, ${escapeHtml(incident.State || 'N/A')}</td>
-                    <td>${escapeHtml(incident['Incident Type'] || 'N/A')}</td>
-                    <td>
-                        ${incident['Source URL'] ? 
-                        `<a href="${escapeHtml(incident['Source URL'])}" target="_blank">View Source</a>` : 
-                        'N/A'}
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function escapeHtml(unsafe) {
-            if (!unsafe) return '';
-            return String(unsafe)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
 </body>
 </html> 
