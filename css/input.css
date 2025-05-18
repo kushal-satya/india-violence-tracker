@@ -8,13 +8,13 @@
     @apply antialiased;
   }
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-darktext;
+    @apply bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-darktext font-sans;
   }
 }
 
 @layer components {
   .container-custom {
-    @apply max-w-8xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-4xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   .btn-primary {
@@ -26,7 +26,7 @@
   }
 
   .card {
-    @apply bg-white dark:bg-darkcard rounded-xl shadow-card p-6 border border-gray-100 dark:border-gray-800 transition-colors duration-200;
+    @apply bg-white dark:bg-darkcard rounded-xl shadow-card p-8 border border-gray-100 dark:border-gray-800 transition-colors duration-200;
   }
 
   .card-hover {
