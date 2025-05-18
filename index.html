@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark-transition">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,6 +16,11 @@
     <link rel="mask-icon" href="assets/favicon/safari-pinned-tab.svg" color="#5bbad5">
     <meta name="msapplication-TileColor" content="#da532c">
     
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <title>India Violence Tracker</title>
     
     <!-- Styles -->
@@ -30,140 +35,175 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen flex flex-col overflow-x-hidden">
+<body class="min-h-screen flex flex-col">
     <!-- Header -->
-    <header class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <img src="assets/logo.svg" alt="Dalit Violence Tracker Logo" class="h-10 w-10">
-                <div>
-                    <h1 class="text-2xl md:text-3xl font-bold text-gray-900">India Dalit Violence Tracker</h1>
-                    <p class="text-sm text-gray-500">Tracking incidents of violence and hate crimes</p>
+    <header class="bg-white dark:bg-darkcard shadow-sm sticky top-0 z-50 dark-transition">
+        <div class="container-custom py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <img src="assets/logo.svg" alt="Dalit Violence Tracker Logo" class="h-10 w-10">
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">India Violence Tracker</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Tracking incidents of violence and hate crimes</p>
+                    </div>
                 </div>
-            </div>
-            <button id="themeToggle" class="ml-4 px-3 py-2 rounded-md bg-primary-100 text-primary-700 hover:bg-primary-200 focus:outline-none focus:ring-2 focus:ring-primary-300 transition-colors duration-150" aria-label="Toggle dark mode">
-                <span id="themeIcon">🌙</span>
-            </button>
-            <button class="md:hidden" id="mobileMenuButton">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                </svg>
-            </button>
-        </div>
-        <!-- Mobile Menu -->
-        <div class="hidden md:hidden" id="mobileMenu">
-            <div class="px-2 pt-2 pb-3 space-y-1">
-                <a href="#map" class="block px-3 py-2 text-gray-600 hover:text-primary-600">Map</a>
-                <a href="#stats" class="block px-3 py-2 text-gray-600 hover:text-primary-600">Statistics</a>
-                <a href="#data" class="block px-3 py-2 text-gray-600 hover:text-primary-600">Data</a>
-                <a href="#about" class="block px-3 py-2 text-gray-600 hover:text-primary-600">About</a>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors duration-150" aria-label="Toggle dark mode">
+                        <span id="themeIcon" class="text-lg">🌙</span>
+                    </button>
+                    <button class="md:hidden p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors duration-150" id="mobileMenuButton" aria-label="Toggle mobile menu">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
 
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu mobile-menu-closed md:hidden">
+        <div class="container-custom py-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Menu</h2>
+                <button id="closeMobileMenu" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors duration-150">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <nav class="space-y-1">
+                <button class="mobile-tab-btn w-full text-left px-4 py-3 text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-150" data-tab="map">Map</button>
+                <button class="mobile-tab-btn w-full text-left px-4 py-3 text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-150" data-tab="stats">Statistics</button>
+                <button class="mobile-tab-btn w-full text-left px-4 py-3 text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-150" data-tab="data">Data</button>
+                <button class="mobile-tab-btn w-full text-left px-4 py-3 text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-150" data-tab="about">About</button>
+            </nav>
+        </div>
+    </div>
+
     <!-- Main Content -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-2 sm:px-4 md:px-8 py-8">
-        <!-- Tab Bar -->
-        <div class="mb-6 flex flex-row space-x-2 border-b border-gray-200 bg-white rounded-t-lg shadow-sm px-2 md:px-6 py-2 sticky top-0 z-40" role="tablist">
-            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-map" role="tab" aria-controls="tabPanel-map" aria-selected="true">Map</button>
-            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-stats" role="tab" aria-controls="tabPanel-stats" aria-selected="false">Statistics</button>
-            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-data" role="tab" aria-controls="tabPanel-data" aria-selected="false">Data</button>
-            <button class="tab-btn px-4 py-2 text-sm md:text-base font-medium text-gray-600 border-b-2 border-transparent focus:outline-none focus:text-primary-600" id="tab-about" role="tab" aria-controls="tabPanel-about" aria-selected="false">About</button>
+    <main class="flex-grow container-custom py-8">
+        <!-- Desktop Tab Bar -->
+        <div class="hidden md:flex space-x-1 border-b border-gray-200 dark:border-gray-700 mb-8" role="tablist">
+            <button class="tab-btn tab-btn-active" id="tab-map" role="tab" aria-controls="tabPanel-map" aria-selected="true">Map</button>
+            <button class="tab-btn" id="tab-stats" role="tab" aria-controls="tabPanel-stats" aria-selected="false">Statistics</button>
+            <button class="tab-btn" id="tab-data" role="tab" aria-controls="tabPanel-data" aria-selected="false">Data</button>
+            <button class="tab-btn" id="tab-about" role="tab" aria-controls="tabPanel-about" aria-selected="false">About</button>
         </div>
+
         <!-- Tab Panels -->
-        <div id="tabPanel-map" class="tab-panel min-h-[400px]" role="tabpanel" aria-labelledby="tab-map">
-            <!-- Map Section -->
-            <div class="bg-white rounded-lg shadow p-6 mb-8">
-                <h2 class="text-xl font-semibold mb-4">Incident Map</h2>
-                <div id="mapContainer" class="w-full bg-primary-50 min-h-[350px] h-[350px] md:h-[500px] xl:h-[650px] rounded-lg"></div>
+        <div id="tabPanel-map" class="tab-panel space-y-6" role="tabpanel" aria-labelledby="tab-map">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Incident Map</h2>
+                <div id="mapContainer" class="w-full bg-gray-50 dark:bg-gray-800 rounded-lg min-h-[350px] h-[350px] md:h-[500px] xl:h-[650px]"></div>
             </div>
         </div>
-        <div id="tabPanel-stats" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-stats">
-            <!-- Statistics Section -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8" id="stats">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900">This Week's Incidents</h3>
-                    <p class="mt-2 text-3xl font-bold text-indigo-600" id="weeklyCount">Loading...</p>
+
+        <div id="tabPanel-stats" class="tab-panel hidden space-y-6" role="tabpanel" aria-labelledby="tab-stats">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="stats-card card-hover">
+                    <svg class="h-8 w-8 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="stats-label">This Week's Incidents</p>
+                    <p class="stats-value" id="weeklyCount">Loading...</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900">This Month's Incidents</h3>
-                    <p class="mt-2 text-3xl font-bold text-indigo-600" id="monthlyCount">Loading...</p>
+                <div class="stats-card card-hover">
+                    <svg class="h-8 w-8 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="stats-label">This Month's Incidents</p>
+                    <p class="stats-value" id="monthlyCount">Loading...</p>
                 </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h3 class="text-lg font-medium text-gray-900">Most Affected State</h3>
-                    <p class="mt-2 text-3xl font-bold text-indigo-600" id="mostAffectedState">Loading...</p>
+                <div class="stats-card card-hover">
+                    <svg class="h-8 w-8 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <p class="stats-label">Most Affected State</p>
+                    <p class="stats-value" id="mostAffectedState">Loading...</p>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-xl font-semibold mb-4">State-wise Distribution</h2>
-                    <canvas id="stateChart" class="w-full min-h-[200px] h-64"></canvas>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h2 class="text-xl font-semibold mb-4">Incident Types</h2>
-                    <canvas id="incidentTypeChart" class="w-full min-h-[200px] h-64"></canvas>
-                </div>
-            </div>
-        </div>
-        <div id="tabPanel-data" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-data">
-            <!-- Data Table Section -->
-            <div class="bg-white rounded-lg shadow">
-                <div class="p-6">
-                    <h2 class="text-xl font-semibold mb-4">Incident Data</h2>
-                    <!-- Filters -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <input type="text" id="searchInput" placeholder="Search..." class="border rounded px-3 py-2">
-                        <select id="stateFilter" class="border rounded px-3 py-2">
-                            <option value="">All States</option>
-                        </select>
-                        <select id="typeFilter" class="border rounded px-3 py-2">
-                            <option value="">All Types</option>
-                        </select>
-                        <input type="date" id="dateFilter" class="border rounded px-3 py-2">
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">State-wise Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="stateChart"></canvas>
                     </div>
-                    <!-- Table -->
-                    <div class="overflow-x-auto no-scrollbar w-full max-h-[60vh] border rounded-lg shadow">
-                        <table id="incidentsTable" class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50 sticky top-0 z-10">
-                                <tr>
-                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200" id="incidentsTableBody">
-                                <!-- Data will be populated by JavaScript -->
-                            </tbody>
-                        </table>
+                </div>
+                <div class="card">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Incident Types</h2>
+                    <div class="chart-container">
+                        <canvas id="incidentTypeChart"></canvas>
                     </div>
-                    <!-- Pagination controls (moved outside scrollable container) -->
-                    <div id="paginationControls"></div>
                 </div>
             </div>
         </div>
-        <div id="tabPanel-about" class="tab-panel hidden min-h-[400px]" role="tabpanel" aria-labelledby="tab-about">
-            <!-- About Section -->
-            <div class="mt-4 bg-white rounded-lg shadow p-6">
-                <h2 class="text-2xl font-semibold mb-4">About This Dashboard</h2>
-                <div class="prose max-w-none">
-                    <p class="text-gray-600">
+
+        <div id="tabPanel-data" class="tab-panel hidden space-y-6" role="tabpanel" aria-labelledby="tab-data">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Incident Data</h2>
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <input type="text" id="searchInput" placeholder="Search..." class="input-field">
+                    <select id="stateFilter" class="select-field">
+                        <option value="">All States</option>
+                    </select>
+                    <select id="typeFilter" class="select-field">
+                        <option value="">All Types</option>
+                    </select>
+                    <input type="date" id="dateFilter" class="input-field">
+                </div>
+
+                <!-- Table -->
+                <div class="table-container">
+                    <table id="incidentsTable" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="table-cell-header">Date</th>
+                                <th class="table-cell-header">Title</th>
+                                <th class="table-cell-header">Location</th>
+                                <th class="table-cell-header">Type</th>
+                                <th class="table-cell-header">Source</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700" id="incidentsTableBody">
+                            <!-- Data will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div id="paginationControls" class="mt-6"></div>
+            </div>
+        </div>
+
+        <div id="tabPanel-about" class="tab-panel hidden space-y-6" role="tabpanel" aria-labelledby="tab-about">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-white">About This Dashboard</h2>
+                <div class="prose dark:prose-invert max-w-none">
+                    <p class="text-gray-600 dark:text-gray-300">
                         This dashboard tracks and visualizes incidents of violence and hate crimes against Dalit, Bahujan, Adivasi, and minority communities across India. 
                         Our mission is to provide accurate, timely, and comprehensive data to raise awareness and promote accountability.
                     </p>
-                    <div class="mt-4">
-                        <h3 class="text-lg font-medium mb-2">Data Sources</h3>
-                        <p class="text-gray-600">
-                            Data is collected from verified news sources and media reports. We use a combination of RSS feeds and news APIs to gather information.
-                        </p>
-                    </div>
-                    <div class="mt-4">
-                        <h3 class="text-lg font-medium mb-2">Methodology</h3>
-                        <p class="text-gray-600">
-                            Each incident is verified through multiple sources when possible. We categorize incidents based on type, location, and affected community.
-                            The data is updated regularly to provide near real-time tracking.
-                        </p>
+                    <div class="mt-6 space-y-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Data Sources</h3>
+                            <p class="text-gray-600 dark:text-gray-300">
+                                Data is collected from verified news sources and media reports. We use a combination of RSS feeds and news APIs to gather information.
+                            </p>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Methodology</h3>
+                            <p class="text-gray-600 dark:text-gray-300">
+                                Each incident is verified through multiple sources when possible. We categorize incidents based on type, location, and affected community.
+                                The data is updated regularly to provide near real-time tracking.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -171,30 +211,30 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-white border-t mt-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <footer class="bg-white dark:bg-darkcard border-t border-gray-200 dark:border-gray-700 mt-auto dark-transition">
+        <div class="container-custom py-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase">About</h3>
-                    <p class="mt-4 text-sm text-gray-500">
+                    <h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">About</h3>
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
                         A comprehensive dashboard tracking incidents of violence and hate crimes against marginalized communities in India.
                     </p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase">Data</h3>
-                    <p class="mt-4 text-sm text-gray-500">
-                        Last updated: <span id="lastUpdated" class="font-medium">Loading...</span>
+                    <h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">Data</h3>
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                        Last updated: <span id="lastUpdated" class="font-medium text-gray-900 dark:text-white">Loading...</span>
                     </p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase">Contact</h3>
-                    <p class="mt-4 text-sm text-gray-500">
+                    <h3 class="text-sm font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">Contact</h3>
+                    <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
                         For data corrections or suggestions, please contact us through our feedback form.
                     </p>
                 </div>
             </div>
-            <div class="mt-8 border-t border-gray-200 pt-8">
-                <p class="text-center text-sm text-gray-400">
+            <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+                <p class="text-center text-sm text-gray-400 dark:text-gray-500">
                     © <span id="currentYear"></span> Dalit Violence Tracker. All rights reserved.
                 </p>
             </div>
@@ -202,15 +242,15 @@
     </footer>
 
     <!-- Modal for Incident Details -->
-    <div id="incidentModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modalTitle"></h3>
+    <div id="incidentModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white dark:bg-darkcard">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white" id="modalTitle"></h3>
                 <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500" id="modalContent"></p>
+                    <div class="text-sm text-gray-500 dark:text-gray-400" id="modalContent"></div>
                 </div>
                 <div class="items-center px-4 py-3">
-                    <button id="closeModal" class="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button id="closeModal" class="btn-primary w-full">
                         Close
                     </button>
                 </div>
@@ -228,36 +268,84 @@
     // Tab switching logic
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabPanels = document.querySelectorAll('.tab-panel');
+    const mobileTabBtns = document.querySelectorAll('.mobile-tab-btn');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const mobileMenuButton = document.getElementById('mobileMenuButton');
+    const closeMobileMenu = document.getElementById('closeMobileMenu');
+
+    function switchTab(tabId) {
+        // Update desktop tabs
+        tabBtns.forEach(btn => {
+            const isActive = btn.id === `tab-${tabId}`;
+            btn.setAttribute('aria-selected', isActive);
+            btn.classList.toggle('tab-btn-active', isActive);
+        });
+
+        // Update panels
+        tabPanels.forEach(panel => {
+            panel.classList.toggle('hidden', panel.id !== `tabPanel-${tabId}`);
+        });
+
+        // Close mobile menu if open
+        if (mobileMenu.classList.contains('mobile-menu-open')) {
+            mobileMenu.classList.remove('mobile-menu-open');
+            mobileMenu.classList.add('mobile-menu-closed');
+        }
+    }
+
+    // Desktop tab click handlers
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            tabBtns.forEach(b => b.setAttribute('aria-selected', 'false'));
-            btn.setAttribute('aria-selected', 'true');
-            tabPanels.forEach(panel => panel.classList.add('hidden'));
-            document.getElementById('tabPanel-' + btn.id.replace('tab-', '')).classList.remove('hidden');
+            const tabId = btn.id.replace('tab-', '');
+            switchTab(tabId);
         });
     });
+
+    // Mobile tab click handlers
+    mobileTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            switchTab(tabId);
+        });
+    });
+
+    // Mobile menu handlers
+    mobileMenuButton.addEventListener('click', () => {
+        mobileMenu.classList.remove('mobile-menu-closed');
+        mobileMenu.classList.add('mobile-menu-open');
+    });
+
+    closeMobileMenu.addEventListener('click', () => {
+        mobileMenu.classList.remove('mobile-menu-open');
+        mobileMenu.classList.add('mobile-menu-closed');
+    });
+
     // Theme toggle logic
     const themeToggle = document.getElementById('themeToggle');
     const themeIcon = document.getElementById('themeIcon');
+
     function setTheme(mode) {
         if (mode === 'dark') {
-            document.body.classList.add('dark');
+            document.documentElement.classList.add('dark');
             themeIcon.textContent = '☀️';
             localStorage.setItem('theme', 'dark');
         } else {
-            document.body.classList.remove('dark');
+            document.documentElement.classList.remove('dark');
             themeIcon.textContent = '🌙';
             localStorage.setItem('theme', 'light');
         }
     }
+
     function toggleTheme() {
-        if (document.body.classList.contains('dark')) {
+        if (document.documentElement.classList.contains('dark')) {
             setTheme('light');
         } else {
             setTheme('dark');
         }
     }
+
     themeToggle.addEventListener('click', toggleTheme);
+
     // On load, set theme from localStorage or system
     const userTheme = localStorage.getItem('theme');
     if (userTheme) {
@@ -267,6 +355,9 @@
     } else {
         setTheme('light');
     }
+
+    // Set current year in footer
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
     </script>
 </body>
 </html> 
