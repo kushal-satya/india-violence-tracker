@@ -88,9 +88,12 @@ class App {
     updateUI() {
         // Update stats
         const stats = dataManager.getStats();
-        document.getElementById('weeklyCount').textContent = stats.weeklyCount;
-        document.getElementById('monthlyCount').textContent = stats.monthlyCount;
-        document.getElementById('mostAffectedState').textContent = stats.mostAffectedState;
+        const weeklyCountEl = document.getElementById('weeklyCount');
+        const monthlyCountEl = document.getElementById('monthlyCount');
+        const totalCountEl = document.getElementById('totalCount');
+        if (weeklyCountEl) weeklyCountEl.textContent = stats.weeklyCount;
+        if (monthlyCountEl) monthlyCountEl.textContent = stats.monthlyCount;
+        if (totalCountEl) totalCountEl.textContent = stats.totalCount;
 
         // Update last updated time
         const lastUpdatedElement = document.getElementById('lastUpdated');
