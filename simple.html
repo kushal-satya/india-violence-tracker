@@ -265,6 +265,10 @@
             font-size: 0.875rem;
             color: #4b5563;
         }
+        .active-source-label {
+            font-weight: bold;
+            color: #2563eb; /* Blue color for active source */
+        }
     </style>
 </head>
 <body>
@@ -273,12 +277,12 @@
             <h1>India Violence Tracker</h1>
             <p>Real-time tracking of violence incidents from news sources across India.</p>
             <div class="data-source-switch">
-                <span class="switch-label">Use Live Data</span>
+                <span class="switch-label" id="mockDataLabel">Mock Data</span>
                 <label class="switch">
-                    <input type="checkbox" id="dataSourceToggle" checked>
+                    <input type="checkbox" id="dataSourceToggle"> <!-- Unchecked by default, so mock data loads first -->
                     <span class="slider"></span>
                 </label>
-                <span class="switch-label">Use Mock Data</span>
+                <span class="switch-label" id="liveDataLabel">Live Data</span>
             </div>
         </div>
     </header>
@@ -357,22 +361,34 @@
 
     <script src="mock_data.js"></script>
     <script>
+        let map = null; // Declare map variable in a broader scope
+
         document.addEventListener('DOMContentLoaded', function() {
             // Set current year
             document.getElementById('currentYear').textContent = new Date().getFullYear();
             
-            // Data URL
             const DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
-            
-            // Get data source toggle
             const dataSourceToggle = document.getElementById('dataSourceToggle');
+            const mockDataLabel = document.getElementById('mockDataLabel');
+            const liveDataLabel = document.getElementById('liveDataLabel');
+
+            function updateDataSourceLabels(isLiveDataActive) {
+                if (isLiveDataActive) {
+                    liveDataLabel.classList.add('active-source-label');
+                    mockDataLabel.classList.remove('active-source-label');
+                } else {
+                    mockDataLabel.classList.add('active-source-label');
+                    liveDataLabel.classList.remove('active-source-label');
+                }
+            }
             
-            // Load data based on current toggle state
+            // Load data based on current toggle state (default is now mock)
             loadData(dataSourceToggle.checked);
+            updateDataSourceLabels(dataSourceToggle.checked); // Initial label state
             
-            // Add event listener for toggle change
             dataSourceToggle.addEventListener('change', function() {
                 loadData(this.checked);
+                updateDataSourceLabels(this.checked);
             });
             
             function loadData(useLiveData) {
@@ -508,8 +524,14 @@
         }
 
         function initializeMap(incidents) {
+            // Remove previous map instance if it exists
+            if (map) {
+                map.remove();
+                map = null;
+            }
+
             // Initialize map
-            const map = L.map('mapContainer').setView([22.5937, 78.9629], 5); // Center on India
+            map = L.map('mapContainer').setView([22.5937, 78.9629], 5); // Center on India
             
             // Add tile layer
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
