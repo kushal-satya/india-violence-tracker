@@ -1,4 +1,6 @@
 // Main application module
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
 import dataManager from './data.js';
 import mapManager from './map.js';
 import chartsManager from './charts.js';
@@ -9,6 +11,9 @@ class App {
         this.initializeLoadingStates();
         this.initializeEventListeners();
         this.loadData();
+
+        // Schedule automatic data refresh
+        setInterval(() => this.refreshData(), REFRESH_INTERVAL_MS);
     }
 
     initializeLoadingStates() {
@@ -231,4 +236,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     // No legacy tab or mobile menu logic here!
-}); 
+});
+
+// Add refreshData method to App class
+App.prototype.refreshData = async function() {
+    console.log('Starting automatic data refresh...');
+    try {
+        await this.loadData();
+        console.log('Data refresh completed successfully.');
+    } catch (error) {
+        console.error('Error during automatic data refresh:', error);
+        // Optionally, show a subtle UI indicator of the error
+        // For now, we're just logging it, as loadData() already handles showing a more prominent error.
+    }
+};
