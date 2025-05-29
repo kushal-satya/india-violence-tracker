@@ -1,32 +1,33 @@
-// INDIA VIOLENCE TRACKER - UNIQUE VERSION: 2024-06-07-VERIFY-HTML
+// INDIA VIOLENCE TRACKER - LIVE DATA VERSION: 2024-06-07-FIXED-FIELDS
 // Force update for GitHub Pages deployment
 // Data manager module
 import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm';
 
-// Google Sheets published CSV URL (from public_json_data sheet)
+// Google Sheets published CSV URL (from public_json_data sheet) - LIVE DATA
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
 const SHEET_PROXY = "https://corsproxy.io/?"; // Changed to a more reliable CORS proxy
 
-// Field mapping from CSV headers to JS properties
+// Field mapping from actual CSV headers to JS properties (matching the real CSV structure)
 const FIELD_MAP = {
+    'incident_id': 'incident_id',
+    'headline': 'title',
+    'summary': 'summary',
+    'incident_date': 'incident_date',
     'published_at': 'published_at',
-    'location': 'location_summary', 
+    'location': 'location_summary',
     'district': 'district',
     'state': 'state',
     'lat': 'lat',
     'lon': 'lon',
     'victim_group': 'victim_group',
     'incident_type': 'incident_type',
-    'headline': 'title',
-    'summary': 'summary',
+    'alleged_perp': 'alleged_perp',
+    'police_action': 'police_action',
     'source_url': 'source_url',
     'source_name': 'source_name',
-    'date_of_incident': 'incident_date',
-    // Additional possible field mappings
-    'title': 'title',
-    'url': 'source_url',
-    'description': 'summary',
-    'content': 'summary'
+    'rss_feed_id': 'rss_feed_id',
+    'confidence_score': 'confidence_score',
+    'verified_manually': 'verified_manually'
 };
 
 class DataManager {
@@ -81,7 +82,7 @@ class DataManager {
                 response = await fetch(proxyUrl, { cache: 'no-cache' });
             }
             
-            if (!response.ok) {
+                if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
             }
             
@@ -319,30 +320,35 @@ class DataManager {
     // New method to update UI elements with stats
     updateStatsUI() {
         try {
-            // Update counter elements with the correct IDs
-            const totalCountElement = document.getElementById('total-incidents');
+            // Update counter elements
+            const totalCountElement = document.getElementById('totalCount');
             if (totalCountElement) {
                 totalCountElement.textContent = this.incidents.length.toString();
             }
             
-            const weeklyCountElement = document.getElementById('this-week');
+            const mappableCountElement = document.getElementById('mappableCount');
+            if (mappableCountElement) {
+                mappableCountElement.textContent = this.stats.mappableCount.toString();
+            }
+            
+            const weeklyCountElement = document.getElementById('weeklyCount');
             if (weeklyCountElement) {
                 weeklyCountElement.textContent = this.stats.weeklyCount.toString();
             }
             
-            const monthlyCountElement = document.getElementById('this-month');
+            const monthlyCountElement = document.getElementById('monthlyCount');
             if (monthlyCountElement) {
                 monthlyCountElement.textContent = this.stats.monthlyCount.toString();
             }
             
             // Update most affected state
-            const mostAffectedStateElement = document.getElementById('top-state');
+            const mostAffectedStateElement = document.getElementById('mostAffectedState');
             if (mostAffectedStateElement && this.stats.topStates.length > 0) {
                 mostAffectedStateElement.textContent = this.stats.topStates[0].state;
             }
             
             // Update last updated timestamp
-            const lastUpdatedElement = document.getElementById('last-updated');
+            const lastUpdatedElement = document.getElementById('lastUpdated');
             if (lastUpdatedElement && this.lastUpdated) {
                 const options = { 
                     year: 'numeric', 
@@ -351,7 +357,7 @@ class DataManager {
                     hour: '2-digit',
                     minute: '2-digit'
                 };
-                lastUpdatedElement.textContent = this.lastUpdated.toLocaleDateString('en-IN', options);
+                lastUpdatedElement.textContent = this.lastUpdated.toLocaleDateString(undefined, options);
             }
             
             // Update footer timestamp if it exists
@@ -362,7 +368,7 @@ class DataManager {
                     month: 'short', 
                     day: 'numeric'
                 };
-                footerLastUpdated.textContent = this.lastUpdated.toLocaleDateString('en-IN', options);
+                footerLastUpdated.textContent = this.lastUpdated.toLocaleDateString(undefined, options);
             }
         } catch (error) {
             console.error('[stats] Error updating UI with stats:', error);
@@ -681,4 +687,4 @@ class DataManager {
 const dataManager = new DataManager();
 
 // Export the instance as default
-export default dataManager;
+export default dataManager; 
