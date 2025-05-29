@@ -77,22 +77,25 @@ class DataManager {
             const incidentType = incidentTypes[Math.floor(Math.random() * incidentTypes.length)];
             
             mockIncidents.push({
-                headline: `${incidentType} incident reported in ${state}`,
+                incident_id: `INC_${String(i + 1).padStart(3, '0')}`,
+                title: `${incidentType} incident reported in ${state}`,
                 summary: `A case of ${incidentType.toLowerCase()} against a ${victimGroup} person was reported. Local authorities have been notified.`,
-                incidentDate: date.toISOString().split('T')[0],
-                publishedAt: date.toISOString(),
-                lat: 20 + Math.random() * 15, // India latitude range
-                lon: 68 + Math.random() * 30, // India longitude range
+                incident_date: date.toISOString().split('T')[0],
+                published_at: date.toISOString(),
+                location_summary: `Near ${state} City Center`,
                 district: `District ${i + 1}`,
                 state: state,
-                victimGroup: victimGroup,
-                incidentType: incidentType,
-                allegedPerp: 'Unknown',
-                policeAction: policeActions[Math.floor(Math.random() * policeActions.length)],
-                sourceUrl: `https://example.com/news/${i}`,
-                rssFeedId: `feed_${Math.floor(Math.random() * 5)}`,
-                confidenceScore: 0.7 + Math.random() * 0.3,
-                verifiedManually: true
+                lat: 20 + Math.random() * 15, // India latitude range
+                lon: 68 + Math.random() * 30, // India longitude range
+                victim_group: victimGroup,
+                incident_type: incidentType,
+                alleged_perp: 'Unknown',
+                police_action: policeActions[Math.floor(Math.random() * policeActions.length)],
+                source_url: `https://example.com/news/${i}`,
+                source_name: `News Source ${Math.floor(Math.random() * 5) + 1}`,
+                rss_feed_id: `feed_${Math.floor(Math.random() * 5)}`,
+                confidence_score: Math.random() < 0.3 ? 'Low' : Math.random() < 0.7 ? 'Medium' : 'High',
+                verified_manually: Math.random() < 0.3 ? 'TRUE' : 'FALSE'
             });
         }
         
@@ -110,12 +113,12 @@ class DataManager {
 
         // Count incidents by time period using new field names
         this.stats.weeklyCount = this.incidents.filter(incident => {
-            const incidentDate = new Date(incident.incidentDate || incident.publishedAt);
+            const incidentDate = new Date(incident.incident_date || incident.published_at);
             return incidentDate >= oneWeekAgo;
         }).length;
 
         this.stats.monthlyCount = this.incidents.filter(incident => {
-            const incidentDate = new Date(incident.incidentDate || incident.publishedAt);
+            const incidentDate = new Date(incident.incident_date || incident.published_at);
             return incidentDate >= oneMonthAgo;
         }).length;
 
@@ -134,7 +137,10 @@ class DataManager {
     }
 
     getStats() {
-        return this.stats;
+        return {
+            ...this.stats,
+            totalCount: this.incidents.length
+        };
     }
 
     getIncidents() {
@@ -149,21 +155,21 @@ class DataManager {
             if (filters.state && incident.state !== filters.state) {
                 return false;
             }
-            if (filters.victimGroup && incident.victimGroup !== filters.victimGroup) {
+            if (filters.victimGroup && incident.victim_group !== filters.victimGroup) {
                 return false;
             }
-            if (filters.incidentType && incident.incidentType !== filters.incidentType) {
+            if (filters.incidentType && incident.incident_type !== filters.incidentType) {
                 return false;
             }
             if (filters.dateFrom) {
-                const incidentDate = new Date(incident.incidentDate || incident.publishedAt);
+                const incidentDate = new Date(incident.incident_date || incident.published_at);
                 const fromDate = new Date(filters.dateFrom);
                 if (incidentDate < fromDate) {
                     return false;
                 }
             }
             if (filters.dateTo) {
-                const incidentDate = new Date(incident.incidentDate || incident.publishedAt);
+                const incidentDate = new Date(incident.incident_date || incident.published_at);
                 const toDate = new Date(filters.dateTo);
                 if (incidentDate > toDate) {
                     return false;
@@ -176,13 +182,13 @@ class DataManager {
     matchesSearch(incident, searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         return (
-            (incident.headline && incident.headline.toLowerCase().includes(searchLower)) ||
+            (incident.title && incident.title.toLowerCase().includes(searchLower)) ||
             (incident.summary && incident.summary.toLowerCase().includes(searchLower)) ||
             (incident.district && incident.district.toLowerCase().includes(searchLower)) ||
             (incident.state && incident.state.toLowerCase().includes(searchLower)) ||
-            (incident.victimGroup && incident.victimGroup.toLowerCase().includes(searchLower)) ||
-            (incident.incidentType && incident.incidentType.toLowerCase().includes(searchLower)) ||
-            (incident.allegedPerp && incident.allegedPerp.toLowerCase().includes(searchLower))
+            (incident.victim_group && incident.victim_group.toLowerCase().includes(searchLower)) ||
+            (incident.incident_type && incident.incident_type.toLowerCase().includes(searchLower)) ||
+            (incident.alleged_perp && incident.alleged_perp.toLowerCase().includes(searchLower))
         );
     }
 
@@ -195,15 +201,15 @@ class DataManager {
 
     getUniqueVictimGroups() {
         return [...new Set(this.incidents
-            .filter(incident => incident.victimGroup)
-            .map(incident => incident.victimGroup)
+            .filter(incident => incident.victim_group)
+            .map(incident => incident.victim_group)
         )].sort();
     }
 
     getUniqueIncidentTypes() {
         return [...new Set(this.incidents
-            .filter(incident => incident.incidentType)
-            .map(incident => incident.incidentType)
+            .filter(incident => incident.incident_type)
+            .map(incident => incident.incident_type)
         )].sort();
     }
 }

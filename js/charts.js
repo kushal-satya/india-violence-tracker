@@ -5,6 +5,7 @@ class ChartsManager {
     constructor() {
         this.stateChart = null;
         this.incidentTypeChart = null;
+        this.victimGroupChart = null;
         this.initialized = false;
         this.chartColors = {
             primary: {
@@ -44,7 +45,8 @@ class ChartsManager {
         try {
             await Promise.all([
                 this.initializeStateChart(incidents),
-                this.initializeIncidentTypeChart(incidents)
+                this.initializeIncidentTypeChart(incidents),
+                this.initializeVictimGroupChart(incidents)
             ]);
             this.initialized = true;
         } catch (error) {
@@ -298,6 +300,113 @@ class ChartsManager {
         });
     }
 
+    async initializeVictimGroupChart(incidents) {
+        const ctx = document.getElementById('victimChart');
+        if (!ctx) return;
+
+        // Destroy previous chart if exists
+        if (this.victimGroupChart) {
+            this.victimGroupChart.destroy();
+            this.victimGroupChart = null;
+        }
+
+        let victimGroupData = this.getVictimGroupDistribution(incidents);
+        let sortedGroupsArr = Object.entries(victimGroupData).sort(([,a], [,b]) => b - a);
+        
+        if (sortedGroupsArr.length === 0) {
+            ctx.parentElement.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full py-12 text-gray-500 dark:text-gray-400">
+                    <svg class="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>No data available for victim groups</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Limit to top 8 groups
+        let topGroups = sortedGroupsArr.slice(0, 8);
+        let otherCount = sortedGroupsArr.slice(8).reduce((sum, [,v]) => sum + v, 0);
+        let labels = topGroups.map(([k]) => this.truncateLabel(k, 20));
+        let values = topGroups.map(([,v]) => v);
+        
+        if (otherCount > 0) {
+            labels.push('Other');
+            values.push(otherCount);
+        }
+
+        const isDark = document.documentElement.classList.contains('dark');
+        const textColor = isDark ? '#E5E7EB' : '#374151';
+        
+        // Use specific colors for known victim groups
+        const colors = labels.map((label, index) => {
+            const lowerLabel = label.toLowerCase();
+            if (lowerLabel.includes('dalit')) return '#2563EB'; // Blue
+            if (lowerLabel.includes('muslim')) return '#7C3AED'; // Purple
+            if (lowerLabel.includes('adivasi') || lowerLabel.includes('tribal')) return '#059669'; // Green
+            if (lowerLabel.includes('christian')) return '#DC2626'; // Red
+            if (lowerLabel.includes('sikh')) return '#D97706'; // Orange
+            return this.generateColorPalette(1, isDark)[0]; // Default color
+        });
+        
+        this.victimGroupChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors.map(c => `${c}40`),
+                    borderColor: colors,
+                    borderWidth: 2,
+                    hoverBackgroundColor: colors.map(c => `${c}60`)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            color: textColor,
+                            font: { 
+                                family: 'Inter',
+                                size: 11
+                            },
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: isDark ? '#374151' : '#E5E7EB',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return `${context.label}: ${context.raw} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                animation: { 
+                    duration: 750,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+    }
+
     generateColorPalette(count, isDark = false) {
         const baseColors = isDark ? [
             '#6366F1', // indigo-500
@@ -360,8 +469,8 @@ class ChartsManager {
 
     getStateDistribution(incidents) {
         return incidents.reduce((acc, incident) => {
-            if (incident.State) {
-                acc[incident.State] = (acc[incident.State] || 0) + 1;
+            if (incident.state) {
+                acc[incident.state] = (acc[incident.state] || 0) + 1;
             }
             return acc;
         }, {});
@@ -369,8 +478,17 @@ class ChartsManager {
 
     getIncidentTypeDistribution(incidents) {
         return incidents.reduce((acc, incident) => {
-            if (incident['Incident Type']) {
-                acc[incident['Incident Type']] = (acc[incident['Incident Type']] || 0) + 1;
+            if (incident.incident_type) {
+                acc[incident.incident_type] = (acc[incident.incident_type] || 0) + 1;
+            }
+            return acc;
+        }, {});
+    }
+
+    getVictimGroupDistribution(incidents) {
+        return incidents.reduce((acc, incident) => {
+            if (incident.victim_group) {
+                acc[incident.victim_group] = (acc[incident.victim_group] || 0) + 1;
             }
             return acc;
         }, {});
@@ -382,6 +500,7 @@ class ChartsManager {
         try {
             this.initializeStateChart(incidents);
             this.initializeIncidentTypeChart(incidents);
+            this.initializeVictimGroupChart(incidents);
         } catch (error) {
             console.error('Error updating charts:', error);
         }
@@ -395,4 +514,4 @@ class ChartsManager {
 
 // Create and export a singleton instance
 const chartsManager = new ChartsManager();
-export default chartsManager; 
+export default chartsManager;

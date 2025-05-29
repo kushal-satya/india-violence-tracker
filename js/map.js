@@ -138,16 +138,18 @@ class MapManager {
 
     createMarkerIcon(incident) {
         const isDark = document.documentElement.classList.contains('dark');
-        const type = incident['Incident Type']?.toLowerCase() || 'other';
-        const colors = {
-            assault: isDark ? '#EF4444' : '#DC2626',
-            murder: isDark ? '#7F1D1D' : '#991B1B',
-            harassment: isDark ? '#F59E0B' : '#D97706',
-            discrimination: isDark ? '#8B5CF6' : '#7C3AED',
-            other: isDark ? '#6B7280' : '#4B5563'
-        };
+        const victimGroup = incident.victim_group?.toLowerCase() || '';
+        
+        // Color markers by victim group: blue for Dalit, purple for Muslim, grey otherwise
+        let color;
+        if (victimGroup.includes('dalit')) {
+            color = isDark ? '#60A5FA' : '#2563EB'; // Blue
+        } else if (victimGroup.includes('muslim')) {
+            color = isDark ? '#A855F7' : '#7C3AED'; // Purple
+        } else {
+            color = isDark ? '#6B7280' : '#4B5563'; // Grey
+        }
 
-        const color = colors[type] || colors.other;
         const size = 24;
 
         return L.divIcon({
@@ -259,7 +261,7 @@ class MapManager {
                     font-weight: 600;
                     margin: 0 0 0.5rem 0;
                     color: ${textColor};
-                ">${incident.Title || 'Untitled Incident'}</h3>
+                ">${incident.title || 'Untitled Incident'}</h3>
                 
                 <div style="
                     font-size: 0.875rem;
@@ -267,17 +269,23 @@ class MapManager {
                     color: ${isDark ? '#9CA3AF' : '#6B7280'};
                 ">
                     <p style="margin: 0.25rem 0;">
-                        <strong>Date:</strong> ${incident.Date || 'Unknown'}
+                        <strong>Date:</strong> ${incident.incident_date || '–'}
                     </p>
                     <p style="margin: 0.25rem 0;">
-                        <strong>Location:</strong> ${incident.Location || 'Unknown'}
-                    </p>
-                    <p style="margin: 0.25rem 0;">
-                        <strong>Type:</strong> ${incident['Incident Type'] || 'Unknown'}
+                        <strong>Location:</strong> ${incident.location_summary || 'Unknown'}
                     </p>
                 </div>
+                
+                <div style="
+                    font-size: 0.75rem;
+                    font-style: italic;
+                    margin-bottom: 0.75rem;
+                    color: ${isDark ? '#9CA3AF' : '#6B7280'};
+                ">
+                    ${incident.victim_group || 'Unknown'} – ${incident.incident_type || 'Unknown'}
+                </div>
 
-                ${incident.Description ? `
+                ${incident.summary ? `
                     <div style="
                         font-size: 0.875rem;
                         margin-top: 0.75rem;
@@ -285,11 +293,11 @@ class MapManager {
                         border-top: 1px solid ${borderColor};
                         color: ${isDark ? '#D1D5DB' : '#4B5563'};
                     ">
-                        ${incident.Description}
+                        ${incident.summary}
                     </div>
                 ` : ''}
 
-                ${incident.Source ? `
+                ${incident.source_url ? `
                     <div style="
                         font-size: 0.75rem;
                         margin-top: 0.75rem;
@@ -297,12 +305,12 @@ class MapManager {
                         border-top: 1px solid ${borderColor};
                         color: ${isDark ? '#9CA3AF' : '#6B7280'};
                     ">
-                        <a href="${incident.Source}" target="_blank" rel="noopener noreferrer" style="
+                        <a href="${incident.source_url}" target="_blank" rel="noopener noreferrer" style="
                             color: ${isDark ? '#60A5FA' : '#2563EB'};
                             text-decoration: none;
                             font-weight: 500;
                         ">
-                            View Source →
+                            Source (${incident.source_name || 'Read more'}) →
                         </a>
                     </div>
                 ` : ''}

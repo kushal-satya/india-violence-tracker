@@ -53,8 +53,9 @@ class TableManager {
     async initializeFilters(incidents) {
         try {
             // Get unique values
-            const states = [...new Set(incidents.map(i => i.State).filter(Boolean))].sort();
-            const types = [...new Set(incidents.map(i => i['Incident Type']).filter(Boolean))].sort();
+            const states = [...new Set(incidents.map(i => i.state).filter(Boolean))].sort();
+            const types = [...new Set(incidents.map(i => i.incident_type).filter(Boolean))].sort();
+            const victimGroups = [...new Set(incidents.map(i => i.victim_group).filter(Boolean))].sort();
             
             // Populate state filter
             this.stateFilter.innerHTML = '<option value="">All States</option>' +
@@ -180,12 +181,12 @@ class TableManager {
             let filteredIncidents = incidents.filter(incident => {
                 if (filters.search) {
                     const searchFields = [
-                        incident.Title,
-                        incident.Location,
-                        incident.State,
-                        incident.District,
-                        incident['Victim Community'],
-                        incident['Incident Type']
+                        incident.title,
+                        incident.location_summary,
+                        incident.state,
+                        incident.district,
+                        incident.victim_group,
+                        incident.incident_type
                     ].filter(Boolean).map(f => f.toLowerCase());
                     
                     if (!searchFields.some(field => field.includes(filters.search))) {
@@ -193,16 +194,16 @@ class TableManager {
                     }
                 }
                 
-                if (filters.state && incident.State !== filters.state) {
+                if (filters.state && incident.state !== filters.state) {
                     return false;
                 }
                 
-                if (filters.type && incident['Incident Type'] !== filters.type) {
+                if (filters.type && incident.incident_type !== filters.type) {
                     return false;
                 }
                 
-                if (filters.date && incident['Date of Incident']) {
-                    const incidentDate = new Date(incident['Date of Incident']).toISOString().split('T')[0];
+                if (filters.date && incident.incident_date) {
+                    const incidentDate = new Date(incident.incident_date).toISOString().split('T')[0];
                     if (incidentDate !== filters.date) {
                         return false;
                     }
