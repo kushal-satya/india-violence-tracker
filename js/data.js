@@ -9,18 +9,24 @@ const SHEET_PROXY = "https://corsproxy.io/?"; // Changed to a more reliable CORS
 
 // Field mapping from CSV headers to JS properties
 const FIELD_MAP = {
-    'headline': 'title',
-    'location': 'location_summary',
-    'date_of_incident': 'incident_date',
     'published_at': 'published_at',
-    'incident_type': 'incident_type',
-    'victim_group': 'victim_group',
-    'state': 'state',
+    'location': 'location_summary', 
     'district': 'district',
+    'state': 'state',
     'lat': 'lat',
     'lon': 'lon',
+    'victim_group': 'victim_group',
+    'incident_type': 'incident_type',
+    'headline': 'title',
+    'summary': 'summary',
     'source_url': 'source_url',
-    'source_name': 'source_name'
+    'source_name': 'source_name',
+    'date_of_incident': 'incident_date',
+    // Additional possible field mappings
+    'title': 'title',
+    'url': 'source_url',
+    'description': 'summary',
+    'content': 'summary'
 };
 
 class DataManager {
@@ -313,35 +319,30 @@ class DataManager {
     // New method to update UI elements with stats
     updateStatsUI() {
         try {
-            // Update counter elements
-            const totalCountElement = document.getElementById('totalCount');
+            // Update counter elements with the correct IDs
+            const totalCountElement = document.getElementById('total-incidents');
             if (totalCountElement) {
                 totalCountElement.textContent = this.incidents.length.toString();
             }
             
-            const mappableCountElement = document.getElementById('mappableCount');
-            if (mappableCountElement) {
-                mappableCountElement.textContent = this.stats.mappableCount.toString();
-            }
-            
-            const weeklyCountElement = document.getElementById('weeklyCount');
+            const weeklyCountElement = document.getElementById('this-week');
             if (weeklyCountElement) {
                 weeklyCountElement.textContent = this.stats.weeklyCount.toString();
             }
             
-            const monthlyCountElement = document.getElementById('monthlyCount');
+            const monthlyCountElement = document.getElementById('this-month');
             if (monthlyCountElement) {
                 monthlyCountElement.textContent = this.stats.monthlyCount.toString();
             }
             
             // Update most affected state
-            const mostAffectedStateElement = document.getElementById('mostAffectedState');
+            const mostAffectedStateElement = document.getElementById('top-state');
             if (mostAffectedStateElement && this.stats.topStates.length > 0) {
                 mostAffectedStateElement.textContent = this.stats.topStates[0].state;
             }
             
             // Update last updated timestamp
-            const lastUpdatedElement = document.getElementById('lastUpdated');
+            const lastUpdatedElement = document.getElementById('last-updated');
             if (lastUpdatedElement && this.lastUpdated) {
                 const options = { 
                     year: 'numeric', 
@@ -350,7 +351,7 @@ class DataManager {
                     hour: '2-digit',
                     minute: '2-digit'
                 };
-                lastUpdatedElement.textContent = this.lastUpdated.toLocaleDateString(undefined, options);
+                lastUpdatedElement.textContent = this.lastUpdated.toLocaleDateString('en-IN', options);
             }
             
             // Update footer timestamp if it exists
@@ -361,7 +362,7 @@ class DataManager {
                     month: 'short', 
                     day: 'numeric'
                 };
-                footerLastUpdated.textContent = this.lastUpdated.toLocaleDateString(undefined, options);
+                footerLastUpdated.textContent = this.lastUpdated.toLocaleDateString('en-IN', options);
             }
         } catch (error) {
             console.error('[stats] Error updating UI with stats:', error);

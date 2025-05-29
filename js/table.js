@@ -210,7 +210,7 @@ class TableManager {
             if (pageIncidents.length === 0) {
                 this.tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" style="padding: var(--space-lg); text-align: center; color: var(--color-text-muted);">
+                        <td colspan="6" style="padding: var(--space-8); text-align: center; color: var(--color-text-tertiary); font-weight: 500;">
                             No incidents found matching your filters
                         </td>
                     </tr>
@@ -226,22 +226,40 @@ class TableManager {
                     }) : 'N/A';
                     
                     return `
-                        <tr style="cursor: pointer;" onmouseover="this.style.backgroundColor='var(--color-border-light)'" onmouseout="this.style.backgroundColor='transparent'" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
-                                ${serialNumber}
+                        <tr style="cursor: pointer; transition: all var(--transition-fast);" 
+                            onmouseover="this.style.backgroundColor='rgba(59, 130, 246, 0.03)'; this.style.transform='scale(1.001)'" 
+                            onmouseout="this.style.backgroundColor='transparent'; this.style.transform='scale(1)'" 
+                            onclick="window.showIncidentDetails && window.showIncidentDetails('${incident.incident_id || ''}')">
+                            <td style="padding: var(--space-4) var(--space-6); font-size: var(--text-sm); color: var(--color-text-tertiary); font-weight: 600; font-family: 'JetBrains Mono', monospace;">
+                                ${serialNumber.toString().padStart(3, '0')}
                             </td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap;">
+                            <td style="padding: var(--space-4) var(--space-6); font-size: var(--text-sm); color: var(--color-text-secondary); white-space: nowrap; font-weight: 500;">
                                 ${formattedDate}
                             </td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-primary);">${this.escapeHtml(incident.title || 'N/A')}</td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
-                                ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
+                            <td style="padding: var(--space-4) var(--space-6); font-size: var(--text-sm); color: var(--color-text-primary); font-weight: 500; line-height: 1.4;">
+                                ${this.escapeHtml(incident.title || 'No title available')}
                             </td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
+                            <td style="padding: var(--space-4) var(--space-6); font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 500;">
+                                ${this.escapeHtml(incident.location_summary || 'Unknown')}${incident.state ? `, ${this.escapeHtml(incident.state)}` : ''}
+                            </td>
+                            <td style="padding: var(--space-4) var(--space-6); font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 500;">
+                                <span style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); color: var(--color-brand-accent); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    ${this.escapeHtml(incident.incident_type || 'Unknown')}
+                                </span>
+                            </td>
+                            <td style="padding: var(--space-4) var(--space-6); font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 500;">
                                 ${incident.source_url ? 
-                                    `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" style="color: var(--color-accent); text-decoration: none;">Source</a>` : 
-                                    'N/A'}
+                                    `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" rel="noopener noreferrer" 
+                                        style="color: var(--color-brand-accent); text-decoration: none; font-weight: 600; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); transition: all var(--transition-fast);"
+                                        onmouseover="this.style.backgroundColor='rgba(59, 130, 246, 0.1)'"
+                                        onmouseout="this.style.backgroundColor='transparent'">
+                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="margin-right: var(--space-1); vertical-align: middle;">
+                                            <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                            <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                        </svg>
+                                        Source
+                                    </a>` : 
+                                    `<span style="color: var(--color-text-quaternary); font-style: italic;">No source</span>`}
                             </td>
                         </tr>
                     `;
