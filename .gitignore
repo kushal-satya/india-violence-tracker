@@ -30,7 +30,6 @@ notebooks/
 backend/
 src/
 tests/
-docs/
 DalitViolenceTracker/
 *.db
 *.sqlite3

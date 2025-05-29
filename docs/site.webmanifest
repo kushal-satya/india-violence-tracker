@@ -1,0 +1,17 @@
+{
+    "name": "India Violence Tracker",
+    "short_name": "Violence Tracker",
+    "description": "A comprehensive dashboard tracking incidents of violence and hate crimes in India",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4F46E5",
+    "icons": [
+        {
+            "src": "assets/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ]
+} 
