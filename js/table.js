@@ -278,38 +278,83 @@ class TableManager {
                 this.showIncidentDetails(incident);
             });
 
-            const date = incident['Date of Incident'] 
-                ? new Date(incident['Date of Incident']).toLocaleDateString()
+            const date = incident.incident_date 
+                ? new Date(incident.incident_date).toLocaleDateString()
                 : 'N/A';
 
-            const location = incident.hasLocation
-                ? `${incident.Location}${incident.District ? `, ${incident.District}` : ''}, ${incident.State}`
-                : 'Location not specified';
+            const location = incident.location_summary || 'Location not specified';
+
+            // Create confidence score badge
+            const confidenceBadge = this.createConfidenceBadge(incident.confidence_score);
+            
+            // Create verified badge
+            const verifiedBadge = this.createVerifiedBadge(incident.verified_manually);
 
             row.innerHTML = `
-                <td class="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">${date}</td>
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-900 max-w-xs truncate">${this.escapeHtml(incident.Title)}</td>
+                <td class="px-2 sm:px-4 py-4 text-sm text-gray-900 max-w-xs">
+                    <div class="truncate">${this.escapeHtml(incident.title || 'No Title')}</div>
+                </td>
+                <td class="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-500">${date}</td>
                 <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">${this.escapeHtml(location)}</td>
                 <td class="px-2 sm:px-4 py-4 text-sm max-w-xs truncate">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
-                        ${this.escapeHtml(incident['Incident Type'] || 'Not specified')}
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        ${this.escapeHtml(incident.victim_group || 'Not specified')}
                     </span>
                 </td>
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">
-                    ${incident['Source URL'] ? `
-                        <a href="${this.escapeHtml(incident['Source URL'])}" 
-                           target="_blank" 
-                           rel="noopener noreferrer" 
-                           class="text-primary-600 hover:text-primary-700 hover:underline" 
-                           onclick="event.stopPropagation()">
-                            ${this.escapeHtml(incident['Source Name'] || 'View Source')}
-                        </a>
-                    ` : 'No source available'}
+                <td class="px-2 sm:px-4 py-4 text-sm">
+                    <div class="flex flex-col space-y-1">
+                        ${confidenceBadge}
+                        ${verifiedBadge}
+                    </div>
                 </td>
             `;
 
             this.tableBody.appendChild(row);
         });
+    }
+
+    createConfidenceBadge(score) {
+        if (!score && score !== 0) return '';
+        
+        let bgColor, textColor, label;
+        
+        if (score >= 0.8) {
+            bgColor = 'bg-green-100';
+            textColor = 'text-green-800';
+            label = 'High';
+        } else if (score >= 0.6) {
+            bgColor = 'bg-yellow-100';
+            textColor = 'text-yellow-800';
+            label = 'Medium';
+        } else {
+            bgColor = 'bg-red-100';
+            textColor = 'text-red-800';
+            label = 'Low';
+        }
+        
+        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${bgColor} ${textColor}">
+            Confidence: ${label} (${Math.round(score * 100)}%)
+        </span>`;
+    }
+
+    createVerifiedBadge(isVerified) {
+        if (isVerified === null || isVerified === undefined) return '';
+        
+        if (isVerified) {
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                Verified
+            </span>`;
+        } else {
+            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
+                </svg>
+                Unverified
+            </span>`;
+        }
     }
 
     showIncidentDetails(incident) {
@@ -319,10 +364,11 @@ class TableManager {
 
         if (!modal || !modalTitle || !modalContent) return;
 
-        modalTitle.textContent = this.escapeHtml(incident.Title || 'No Title');
+        modalTitle.textContent = this.escapeHtml(incident.title || 'No Title');
 
         const details = [];
-        if (incident['Date of Incident']) {
+        
+        if (incident.incident_date) {
             details.push(`
                 <div class="flex items-start space-x-2">
                     <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,13 +376,13 @@ class TableManager {
                     </svg>
                     <div>
                         <p class="font-medium text-gray-900">Date</p>
-                        <p class="text-gray-500">${new Date(incident['Date of Incident']).toLocaleString()}</p>
+                        <p class="text-gray-500">${new Date(incident.incident_date).toLocaleString()}</p>
                     </div>
                 </div>
             `);
         }
 
-        if (incident.hasLocation) {
+        if (incident.location_summary) {
             details.push(`
                 <div class="flex items-start space-x-2">
                     <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,17 +391,14 @@ class TableManager {
                     </svg>
                     <div>
                         <p class="font-medium text-gray-900">Location</p>
-                        <p class="text-gray-500">
-                            ${this.escapeHtml(incident.Location)}
-                            ${incident.District ? `, ${this.escapeHtml(incident.District)}` : ''}
-                            , ${this.escapeHtml(incident.State)}
-                        </p>
+                        <p class="text-gray-500">${this.escapeHtml(incident.location_summary)}</p>
+                        ${incident.state ? `<p class="text-gray-400 text-sm">${this.escapeHtml(incident.state)}</p>` : ''}
                     </div>
                 </div>
             `);
         }
 
-        if (incident['Victim Community']) {
+        if (incident.victim_group) {
             details.push(`
                 <div class="flex items-start space-x-2">
                     <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -363,13 +406,13 @@ class TableManager {
                     </svg>
                     <div>
                         <p class="font-medium text-gray-900">Affected Community</p>
-                        <p class="text-gray-500">${this.escapeHtml(incident['Victim Community'])}</p>
+                        <p class="text-gray-500">${this.escapeHtml(incident.victim_group)}</p>
                     </div>
                 </div>
             `);
         }
 
-        if (incident['Incident Type']) {
+        if (incident.incident_type) {
             details.push(`
                 <div class="flex items-start space-x-2">
                     <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,13 +420,31 @@ class TableManager {
                     </svg>
                     <div>
                         <p class="font-medium text-gray-900">Incident Type</p>
-                        <p class="text-gray-500">${this.escapeHtml(incident['Incident Type'])}</p>
+                        <p class="text-gray-500">${this.escapeHtml(incident.incident_type)}</p>
                     </div>
                 </div>
             `);
         }
 
-        if (incident['Source URL']) {
+        // Add confidence and verification status
+        if (incident.confidence_score !== null && incident.confidence_score !== undefined) {
+            details.push(`
+                <div class="flex items-start space-x-2">
+                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <div>
+                        <p class="font-medium text-gray-900">Data Quality</p>
+                        <div class="flex space-x-2 mt-1">
+                            ${this.createConfidenceBadge(incident.confidence_score)}
+                            ${this.createVerifiedBadge(incident.verified_manually)}
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+
+        if (incident.source_url) {
             details.push(`
                 <div class="flex items-start space-x-2">
                     <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,11 +452,11 @@ class TableManager {
                     </svg>
                     <div>
                         <p class="font-medium text-gray-900">Source</p>
-                        <a href="${this.escapeHtml(incident['Source URL'])}" 
+                        <a href="${this.escapeHtml(incident.source_url)}" 
                            target="_blank" 
                            rel="noopener noreferrer" 
-                           class="text-primary-600 hover:text-primary-700 hover:underline">
-                            ${this.escapeHtml(incident['Source Name'] || 'View Source')}
+                           class="text-blue-600 hover:text-blue-700 hover:underline">
+                            ${this.escapeHtml(incident.source_name || 'View Source')}
                         </a>
                     </div>
                 </div>

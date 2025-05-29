@@ -14,7 +14,7 @@ class DataManager {
         };
         this.loading = false;
         this.error = null;
-        this.useMockData = true; // TODO: Set to false when real data is available
+        this.useMockData = false; // TODO: Set to false when real data is available
     }
 
     async fetchData() {
