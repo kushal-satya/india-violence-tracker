@@ -211,28 +211,72 @@ class MapManager {
 
             // Filter incidents with valid coordinates
             const validIncidents = incidents.filter(incident => {
+                // Try to ensure lat/lon are numbers
                 const lat = parseFloat(incident.lat);
                 const lon = parseFloat(incident.lon);
-                return !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+                
+                // Check if values are valid numbers, not null/undefined, and within reasonable ranges
+                const isValid = !isNaN(lat) && !isNaN(lon) && 
+                               lat !== null && lon !== null &&
+                               typeof lat === 'number' && typeof lon === 'number';
+                
+                // For debugging: log coordinate details
+                if (!isValid) {
+                    console.debug(`[map] Skipping incident with invalid coordinates: 
+                        Title: ${incident.title || 'Untitled'}, 
+                        Lat: ${incident.lat} (${typeof incident.lat}), 
+                        Lon: ${incident.lon} (${typeof incident.lon})`);
+                }
+                
+                return isValid;
             });
 
             console.info(`[map] Adding ${validIncidents.length} markers (${incidents.length - validIncidents.length} skipped)`);
+            
+            // If no valid incidents, log details of first few incidents for debugging
+            if (validIncidents.length === 0 && incidents.length > 0) {
+                console.warn('[map] No valid incidents with coordinates. Sample incident data:');
+                incidents.slice(0, 3).forEach((incident, i) => {
+                    console.warn(`[map] Sample incident ${i+1}:`, JSON.stringify({
+                        title: incident.title,
+                        lat: incident.lat,
+                        lon: incident.lon,
+                        latType: typeof incident.lat,
+                        lonType: typeof incident.lon
+                    }));
+                });
+            }
 
             validIncidents.forEach(incident => {
-                const marker = L.marker(
-                    [incident.lat, incident.lon],
-                    { icon: this.createMarkerIcon(incident) }
-                );
+                try {
+                    // Convert lat/lon to numbers again to be safe
+                    const lat = parseFloat(incident.lat);
+                    const lon = parseFloat(incident.lon);
+                    
+                    if (isNaN(lat) || isNaN(lon)) {
+                        console.warn(`[map] Skipping marker with invalid coordinates: ${incident.title}`);
+                        return; // Skip this iteration
+                    }
+                    
+                    console.debug(`[map] Creating marker for: ${incident.title}, coordinates: [${lat}, ${lon}]`);
+                    
+                    const marker = L.marker(
+                        [lat, lon],
+                        { icon: this.createMarkerIcon(incident) }
+                    );
 
-                // Create popup content
-                const popupContent = this.createPopupContent(incident);
-                marker.bindPopup(popupContent, {
-                    maxWidth: 300,
-                    className: 'custom-popup',
-                    closeButton: true
-                });
+                    // Create popup content
+                    const popupContent = this.createPopupContent(incident);
+                    marker.bindPopup(popupContent, {
+                        maxWidth: 300,
+                        className: 'custom-popup',
+                        closeButton: true
+                    });
 
-                this.markers.addLayer(marker);
+                    this.markers.addLayer(marker);
+                } catch (error) {
+                    console.error(`[map] Error creating marker for incident: ${incident.title}`, error);
+                }
             });
 
             // Fit bounds to show all markers
@@ -308,7 +352,7 @@ class MapManager {
                     </div>
                 ` : ''}
 
-                ${incident.sourceUrl ? `
+                ${incident.source_url ? `
                     <div style="
                         font-size: 0.75rem;
                         margin-top: 0.75rem;
@@ -316,12 +360,12 @@ class MapManager {
                         border-top: 1px solid ${borderColor};
                         color: ${isDark ? '#9CA3AF' : '#6B7280'};
                     ">
-                        <a href="${incident.sourceUrl}" target="_blank" rel="noopener noreferrer" style="
+                        <a href="${incident.source_url}" target="_blank" rel="noopener noreferrer" style="
                             color: ${isDark ? '#60A5FA' : '#2563EB'};
                             text-decoration: none;
                             font-weight: 500;
                         ">
-                            View Source →
+                            ${incident.source_name || 'View Source'} →
                         </a>
                     </div>
                 ` : ''}
