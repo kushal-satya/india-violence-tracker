@@ -12,13 +12,12 @@ const FIELD_MAP = {
     'headline': 'title',
     'location': 'location_summary',
     'date_of_incident': 'incident_date',
-    'published_at': 'published_at',
     'incident_type': 'incident_type',
     'victim_group': 'victim_group',
     'state': 'state',
     'district': 'district',
-    'lat': 'lat',
-    'lon': 'lon',
+    'latitude': 'lat',
+    'longitude': 'lon',
     'source_url': 'source_url',
     'source_name': 'source_name'
 };
@@ -56,9 +55,6 @@ class DataManager {
             document.getElementById('loader')?.classList.remove('hidden');
             document.getElementById('errorBanner')?.classList.add('hidden');
             
-            // For debugging - alert that we're starting
-            console.log('[DEBUG] Starting data fetch operation - checking URL and proxy configuration');
-            
             // Try direct fetch first
             console.info('[fetch] Attempting direct fetch from:', SHEET_URL);
             let response = await fetch(SHEET_URL, { 
@@ -84,7 +80,6 @@ class DataManager {
             
             const csvText = await response.text();
             console.info('[fetch] Received CSV data length:', csvText.length);
-            console.log('[DEBUG] First 100 chars of CSV:', csvText.substring(0, 100));
             
             console.time('[parse] CSV parsing');
             const { data, errors } = Papa.parse(csvText, {
@@ -99,7 +94,6 @@ class DataManager {
             }
             
             console.info('[parse] Parsed rows:', data.length);
-            console.log('[DEBUG] First row sample:', JSON.stringify(data[0]));
             
             // Map fields and clean data
             console.time('[parse] Data processing');
@@ -152,18 +146,6 @@ class DataManager {
                 Invalid incidents (filtered out): ${invalidCoordinates}
                 Total incidents kept: ${this.incidents.length}
             `);
-            
-            // Debug output - display first few incidents for coordinates check
-            console.log('[DEBUG] First 3 incidents after processing:');
-            this.incidents.slice(0, 3).forEach((incident, i) => {
-                console.log(`Incident ${i+1}:`, JSON.stringify({
-                    title: incident.title,
-                    lat: incident.lat,
-                    lon: incident.lon,
-                    latType: typeof incident.lat,
-                    lonType: typeof incident.lon
-                }));
-            });
             
             console.timeEnd('[parse] Data processing');
             
@@ -454,55 +436,22 @@ class DataManager {
                 return null;
             }
             
-            // Handle coordinate format variations
-            // Try to preserve the basic structure but normalize formatting
-            
-            // First check if the value might be a coordinate pair like "28.7041, 77.1025"
-            if (clean.includes(',') && !clean.includes('°')) {
-                // This might be a pair - extract just the first number
-                clean = clean.split(',')[0].trim();
-            }
-            
-            // Handle degree formats like 28°42'14.8"N
-            if (clean.includes('°')) {
-                // This is likely in DMS format - need special handling
-                try {
-                    // Extract the main components (degrees, possibly minutes, seconds)
-                    const degrees = parseFloat(clean.split('°')[0].trim());
-                    
-                    // Check for direction (N/S/E/W)
-                    const isNegative = 
-                        clean.toUpperCase().includes('S') || 
-                        clean.toUpperCase().includes('W');
-                        
-                    // Simple conversion - just use the degrees part
-                    return isNegative ? -degrees : degrees;
-                } catch (e) {
-                    console.warn(`[parse] Row ${index}: Failed to parse DMS format: ${clean}`);
-                    // Just use the number at the beginning
-                    const match = clean.match(/^\d+(\.\d+)?/);
-                    return match ? match[0] : null;
-                }
-            }
-            
-            // Handle comma as decimal separator
+            // Remove any non-numeric chars except dot and minus sign
+            // First replace comma with dot for decimal separator
             clean = clean.replace(/,/g, '.');
             
-            // For standard decimal format, extract just the numeric part
-            const match = clean.match(/-?\d+(\.\d+)?/);
-            if (match) {
-                return match[0];
-            }
+            // Remove any quotes, parentheses, or other non-numeric characters
+            clean = clean.replace(/[^\d.-]/g, '');
             
-            return null;
+            return clean;
         };
         
         // Expanded India bounds check to be more lenient
         // Normal India: ~6° to 37°N, ~68° to 98°E
         // Extended bounds for neighbor areas and minor errors
         const isWithinExtendedBounds = (lat, lon) => {
-            // Even more lenient bounds (includes neighboring countries and accounts for errors)
-            return lat >= 0 && lat <= 45 && lon >= 60 && lon <= 105;
+            // More lenient bounds (includes neighboring countries)
+            return lat >= 5 && lat <= 40 && lon >= 65 && lon <= 100;
         };
         
         // Try to extract valid coordinates
@@ -595,16 +544,12 @@ class DataManager {
                     incident.lon = stateCoordinates.lon;
                     console.info(`[parse] Row ${index}: Using state coordinates for ${incident.state}: [${incident.lat}, ${incident.lon}]`);
                 } else {
-                    console.warn(`[parse] Row ${index}: Could not find coordinates for state: ${incident.state}`);
-                    // Default to center of India as absolute last resort
-                    incident.lat = 20.5937;
-                    incident.lon = 78.9629;
-                    console.info(`[parse] Row ${index}: Using default India coordinates as last resort`);
+                    incident.lat = null;
+                    incident.lon = null;
                 }
             } else {
                 incident.lat = null;
                 incident.lon = null;
-                console.warn(`[parse] Row ${index}: No state information available for fallback coordinates`);
             }
         }
         

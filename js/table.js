@@ -222,29 +222,42 @@ class TableManager {
             if (pageIncidents.length === 0) {
                 this.tableBody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
                             No incidents found matching your filters
                         </td>
                     </tr>
                 `;
             } else {
-                this.tableBody.innerHTML = pageIncidents.map(incident => `
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${incident.incident_date ? new Date(incident.incident_date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.title || 'N/A')}</td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
-                        <td class="px-6 py-4 text-sm text-gray-500">
-                            ${incident.source_url ? 
-                                `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" class="text-indigo-600 hover:text-indigo-900">Source</a>` : 
-                                'N/A'}
-                        </td>
-                    </tr>
-                `).join('');
+                this.tableBody.innerHTML = pageIncidents.map((incident, index) => {
+                    const serialNumber = startIndex + index + 1;
+                    const date = incident.incident_date || incident.published_at;
+                    const formattedDate = date ? new Date(date).toLocaleDateString('en-IN', {
+                        year: 'numeric',
+                        month: 'short', 
+                        day: 'numeric'
+                    }) : 'N/A';
+                    
+                    return `
+                        <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${serialNumber}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${formattedDate}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.title || 'N/A')}</td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                ${incident.source_url ? 
+                                    `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" class="text-indigo-600 hover:text-indigo-900">Source</a>` : 
+                                    'N/A'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
 
             // Update pagination
