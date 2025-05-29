@@ -74,6 +74,23 @@ class App {
                 });
             }
         }
+        
+        // Add Fix Coordinates button handler
+        const fixCoordinatesBtn = document.getElementById('fix-coordinates-btn');
+        if (fixCoordinatesBtn) {
+            fixCoordinatesBtn.addEventListener('click', () => {
+                if (window.debugUtils && window.debugUtils.fixCoordinates) {
+                    window.debugUtils.fixCoordinates();
+                    fixCoordinatesBtn.textContent = 'Coordinates Fixed!';
+                    setTimeout(() => {
+                        fixCoordinatesBtn.textContent = 'Fix Map Coordinates';
+                    }, 2000);
+                } else {
+                    console.error('Debug utilities not available');
+                    fixCoordinatesBtn.textContent = 'Error: Utilities Not Available';
+                }
+            });
+        }
     }
 
     async loadData() {
