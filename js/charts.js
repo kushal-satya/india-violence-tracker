@@ -375,13 +375,7 @@ class ChartsManager {
         const typeCounts = {};
         incidents.forEach(incident => {
             if (incident.incident_type) {
-                // Split comma-separated incident types and count each separately
-                const types = incident.incident_type.split(',').map(type => type.trim()).filter(type => type);
-                types.forEach(type => {
-                    if (type) {
-                        typeCounts[type] = (typeCounts[type] || 0) + 1;
-                    }
-                });
+                typeCounts[incident.incident_type] = (typeCounts[incident.incident_type] || 0) + 1;
             }
         });
         return typeCounts;
@@ -391,13 +385,7 @@ class ChartsManager {
         const groupCounts = {};
         incidents.forEach(incident => {
             if (incident.victim_group) {
-                // Split comma-separated victim groups and count each separately
-                const groups = incident.victim_group.split(',').map(group => group.trim()).filter(group => group);
-                groups.forEach(group => {
-                    if (group) {
-                        groupCounts[group] = (groupCounts[group] || 0) + 1;
-                    }
-                });
+                groupCounts[incident.victim_group] = (groupCounts[incident.victim_group] || 0) + 1;
             }
         });
         return groupCounts;

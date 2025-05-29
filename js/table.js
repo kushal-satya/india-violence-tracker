@@ -1,514 +1,267 @@
 // Table manager module
-import dataManager from './data.js?v=2';
+import dataManager from './data.js?v=3';
 
 class TableManager {
     constructor() {
-        this.table = null;
-        this.tableBody = null;
-        this.searchInput = null;
-        this.stateFilter = null;
-        this.typeFilter = null;
-        this.dateFilter = null;
-        this.initialized = false;
         this.currentPage = 1;
         this.itemsPerPage = 10;
-        this.totalPages = 1;
+        this.sortColumn = 'incident_date';
+        this.sortDirection = 'desc';
+        this.incidents = [];
+        this.filteredIncidents = [];
     }
 
     async initialize(incidents) {
-        if (this.initialized) {
-            this.updateTable(incidents);
-            return;
-        }
-
-        try {
-            // Get DOM elements
-            this.table = document.getElementById('incidents-table');
-            this.tableBody = document.getElementById('incidentsTableBody');
-            this.searchInput = document.getElementById('search-input');
-            this.stateFilter = document.getElementById('state-filter');
-            this.typeFilter = document.getElementById('incident-type-filter');
-            this.dateFilter = document.getElementById('date-from');
-
-            if (!this.table || !this.tableBody || !this.searchInput || !this.stateFilter || !this.typeFilter || !this.dateFilter) {
-                throw new Error('Required table elements not found');
-            }
-
-            // Initialize filters
-            await this.initializeFilters(incidents);
-            
-            // Setup event listeners
-            this.setupEventListeners();
-            
-            // Initial table render
-            this.updateTable(incidents);
-            
-            this.initialized = true;
-        } catch (error) {
-            console.error('Error initializing table:', error);
-            document.getElementById('errorBanner')?.classList.remove('hidden');
-            throw new Error('Failed to initialize table');
-        }
-    }
-
-    async initializeFilters(incidents) {
-        try {
-            // Get unique values
-            const states = [...new Set(incidents.map(i => i.state).filter(Boolean))].sort();
-            const types = [...new Set(incidents.map(i => i.incident_type).filter(Boolean))].sort();
-            
-            // Populate state filter
-            this.stateFilter.innerHTML = '<option value="">All States</option>' +
-                states.map(state => `<option value="${this.escapeHtml(state)}">${this.escapeHtml(state)}</option>`).join('');
-            
-            // Populate type filter
-            this.typeFilter.innerHTML = '<option value="">All Types</option>' +
-                types.map(type => `<option value="${this.escapeHtml(type)}">${this.escapeHtml(type)}</option>`).join('');
-            
-            // Set max date to today
-            const today = new Date().toISOString().split('T')[0];
-            this.dateFilter.max = today;
-        } catch (error) {
-            console.error('Error initializing filters:', error);
-            throw error;
-        }
+        console.log('[table] Initializing table with', incidents.length, 'incidents');
+        this.incidents = incidents;
+        this.filteredIncidents = incidents;
+        
+        this.render();
+        this.setupEventListeners();
     }
 
     setupEventListeners() {
-        // Search input with debounce
-        let searchTimeout;
-        this.searchInput.addEventListener('input', () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => this.updateTable(), 300);
-        });
-        
-        // Filter selects
-        this.stateFilter.addEventListener('change', () => {
-            this.currentPage = 1;
-            this.updateTable();
-        });
-        this.typeFilter.addEventListener('change', () => {
-            this.currentPage = 1;
-            this.updateTable();
-        });
-        this.dateFilter.addEventListener('change', () => {
-            this.currentPage = 1;
-            this.updateTable();
-        });
-
-        // Add pagination controls
-        const paginationControls = document.getElementById('paginationControls');
-        paginationControls.innerHTML = '';
-        const paginationContainer = document.createElement('div');
-        paginationContainer.className = 'mt-4 flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6';
-        paginationContainer.innerHTML = `
-            <div class="flex-1 flex justify-between sm:hidden">
-                <button class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" id="prevPageMobile">
-                    Previous
-                </button>
-                <button class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" id="nextPageMobile">
-                    Next
-                </button>
-            </div>
-            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                <div>
-                    <p class="text-sm text-gray-700">
-                        Showing <span class="font-medium" id="startItem">1</span> to <span class="font-medium" id="endItem">10</span> of <span class="font-medium" id="totalItems">0</span> results
-                    </p>
-                </div>
-                <div>
-                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" id="prevPage">
-                            <span class="sr-only">Previous</span>
-                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                        <div id="pageNumbers" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                            Page 1 of 1
-                        </div>
-                        <button class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" id="nextPage">
-                            <span class="sr-only">Next</span>
-                            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </nav>
-                </div>
-            </div>
-        `;
-        paginationControls.appendChild(paginationContainer);
-
         // Pagination controls
-        document.getElementById('prev-page')?.addEventListener('click', () => {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.updateTable();
-            }
-        });
-        document.getElementById('next-page')?.addEventListener('click', () => {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.updateTable();
-            }
-        });
-    }
-
-    updateTable(incidents = dataManager.getIncidents()) {
-        if (!this.initialized) return;
-
-        try {
-            const filters = {
-                search: this.searchInput.value.toLowerCase(),
-                state: this.stateFilter.value,
-                type: this.typeFilter.value,
-                date: this.dateFilter.value
-            };
-
-            // Apply filters
-            let filteredIncidents = incidents.filter(incident => {
-                if (filters.search) {
-                    const searchFields = [
-                        incident.title,
-                        incident.location_summary,
-                        incident.state,
-                        incident.district,
-                        incident.victim_group,
-                        incident.incident_type
-                    ].filter(Boolean).map(f => f.toLowerCase());
-                    
-                    if (!searchFields.some(field => field.includes(filters.search))) {
-                        return false;
-                    }
-                }
-                
-                if (filters.state && incident.state !== filters.state) {
-                    return false;
-                }
-                
-                if (filters.type && incident.incident_type !== filters.type) {
-                    return false;
-                }
-                
-                if (filters.date && incident.incident_date) {
-                    const incidentDate = new Date(incident.incident_date).toISOString().split('T')[0];
-                    if (incidentDate !== filters.date) {
-                        return false;
-                    }
-                }
-                
-                return true;
-            });
-
-            // Calculate pagination
-            this.totalPages = Math.ceil(filteredIncidents.length / this.itemsPerPage);
-            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-            const endIndex = startIndex + this.itemsPerPage;
-            const pageIncidents = filteredIncidents.slice(startIndex, endIndex);
-
-            // Update table
-            if (pageIncidents.length === 0) {
-                this.tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" style="padding: var(--space-lg); text-align: center; color: var(--color-text-muted);">
-                            No incidents found matching your filters
-                        </td>
-                    </tr>
-                `;
-            } else {
-                this.tableBody.innerHTML = pageIncidents.map((incident, index) => {
-                    const serialNumber = startIndex + index + 1;
-                    const date = incident.incident_date || incident.published_at;
-                    const formattedDate = date ? new Date(date).toLocaleDateString('en-IN', {
-                        year: 'numeric',
-                        month: 'short', 
-                        day: 'numeric'
-                    }) : 'N/A';
-                    
-                    return `
-                        <tr style="cursor: pointer;" onmouseover="this.style.backgroundColor='var(--color-border-light)'" onmouseout="this.style.backgroundColor='transparent'" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
-                                ${serialNumber}
-                            </td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap;">
-                                ${formattedDate}
-                            </td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-primary);">${this.escapeHtml(incident.title || 'N/A')}</td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
-                                ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
-                            </td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
-                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
-                                ${incident.source_url ? 
-                                    `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" style="color: var(--color-accent); text-decoration: none;">Source</a>` : 
-                                    'N/A'}
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-
-            // Update pagination
-            this.updatePagination(filteredIncidents.length);
-            
-        } catch (error) {
-            console.error('Error updating table:', error);
-            document.getElementById('errorBanner')?.classList.remove('hidden');
+        const prevButton = document.getElementById('prevPage');
+        const nextButton = document.getElementById('nextPage');
+        
+        if (prevButton) {
+            prevButton.addEventListener('click', () => this.previousPage());
         }
+        
+        if (nextButton) {
+            nextButton.addEventListener('click', () => this.nextPage());
+        }
+
+        // Page size selector
+        const pageSizeSelect = document.getElementById('pageSize');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', (e) => {
+                this.itemsPerPage = parseInt(e.target.value);
+                this.currentPage = 1;
+                this.render();
+            });
+        }
+
+        // Sort headers
+        const sortableHeaders = document.querySelectorAll('[data-sort]');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.getAttribute('data-sort');
+                this.sort(column);
+            });
+        });
     }
 
-    updatePagination(totalItems) {
-        if (!this.tableBody) return;
+    render() {
+        this.renderTable();
+        this.renderPagination();
+    }
+
+    renderTable() {
+        const tableBody = document.getElementById('incidents-table-body');
+        if (!tableBody) {
+            console.error('[table] Table body element not found');
+            return;
+        }
+
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+        const endIndex = startIndex + this.itemsPerPage;
+        const pageIncidents = this.filteredIncidents.slice(startIndex, endIndex);
+
+        if (pageIncidents.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <div class="flex flex-col items-center space-y-2">
+                            <svg class="h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p class="text-lg font-medium">No incidents found</p>
+                            <p class="text-sm">Try adjusting your search or filter criteria</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = pageIncidents.map((incident, index) => `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id}')">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                    ${startIndex + index + 1}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    ${this.formatDate(incident.incident_date)}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                    <div class="max-w-xs truncate" title="${this.escapeHtml(incident.title)}">
+                        ${this.escapeHtml(incident.title)}
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    <div class="max-w-xs truncate" title="${this.escapeHtml(incident.location_summary)}">
+                        ${this.escapeHtml(incident.location_summary)}
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-sm">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${this.getVictimGroupColor(incident.victim_group)}">
+                        ${this.escapeHtml(incident.victim_group)}
+                    </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    ${this.escapeHtml(incident.incident_type)}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    renderPagination() {
+        const totalPages = Math.ceil(this.filteredIncidents.length / this.itemsPerPage);
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage + 1;
+        const endIndex = Math.min(startIndex + this.itemsPerPage - 1, this.filteredIncidents.length);
 
         // Update pagination info
-        const showingCountEl = document.getElementById('showing-count');
-        const totalCountEl = document.getElementById('total-count');
-        const pageInfoEl = document.getElementById('page-info');
-
-        if (showingCountEl) {
-            showingCountEl.textContent = totalItems ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0;
-        }
-        if (totalCountEl) {
-            const endItem = Math.min(this.currentPage * this.itemsPerPage, totalItems);
-            totalCountEl.textContent = totalItems;
-            if (showingCountEl) {
-                // Update showing count to show range
-                showingCountEl.parentElement.innerHTML = `
-                    Showing ${totalItems ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0}-${endItem} of ${totalItems} incidents
-                `;
-            }
-        }
-        if (pageInfoEl) {
-            pageInfoEl.textContent = `Page ${this.currentPage} of ${this.totalPages}`;
+        const paginationInfo = document.getElementById('paginationInfo');
+        if (paginationInfo) {
+            paginationInfo.textContent = `Showing ${startIndex} to ${endIndex} of ${this.filteredIncidents.length} results`;
         }
 
-        // Update pagination button states
-        const prevButton = document.getElementById('prev-page');
-        const nextButton = document.getElementById('next-page');
-
+        // Update page buttons
+        const prevButton = document.getElementById('prevPage');
+        const nextButton = document.getElementById('nextPage');
+        
         if (prevButton) {
             prevButton.disabled = this.currentPage === 1;
-            prevButton.style.opacity = this.currentPage === 1 ? '0.5' : '1';
-            prevButton.style.cursor = this.currentPage === 1 ? 'not-allowed' : 'pointer';
+            prevButton.classList.toggle('opacity-50', this.currentPage === 1);
+            prevButton.classList.toggle('cursor-not-allowed', this.currentPage === 1);
         }
-
+        
         if (nextButton) {
-            nextButton.disabled = this.currentPage === this.totalPages;
-            nextButton.style.opacity = this.currentPage === this.totalPages ? '0.5' : '1';
-            nextButton.style.cursor = this.currentPage === this.totalPages ? 'not-allowed' : 'pointer';
+            nextButton.disabled = this.currentPage === totalPages;
+            nextButton.classList.toggle('opacity-50', this.currentPage === totalPages);
+            nextButton.classList.toggle('cursor-not-allowed', this.currentPage === totalPages);
         }
+
+        // Update current page indicator
+        const currentPageSpan = document.getElementById('currentPage');
+        const totalPagesSpan = document.getElementById('totalPages');
+        if (currentPageSpan) currentPageSpan.textContent = this.currentPage;
+        if (totalPagesSpan) totalPagesSpan.textContent = totalPages;
     }
 
-    showIncidentDetails(incident) {
-        const modal = document.getElementById('incidentModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalContent = document.getElementById('modalContent');
-
-        if (!modal || !modalTitle || !modalContent) return;
-
-        modalTitle.textContent = this.escapeHtml(incident.headline || 'No Title');
-
-        const details = [];
-        if (incident.incidentDate) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Date</p>
-                        <p class="text-gray-500">${new Date(incident.incidentDate).toLocaleString()}</p>
-                    </div>
-                </div>
-            `);
+    sort(column) {
+        if (this.sortColumn === column) {
+            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortColumn = column;
+            this.sortDirection = 'asc';
         }
 
-        if (incident.hasLocation) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Location</p>
-                        <p class="text-gray-500">
-                            ${this.escapeHtml(incident.location)}
-                            ${incident.district ? `, ${this.escapeHtml(incident.district)}` : ''}
-                            , ${this.escapeHtml(incident.state)}
-                        </p>
-                    </div>
-                </div>
-            `);
-        }
+        this.filteredIncidents.sort((a, b) => {
+            let aVal = a[column];
+            let bVal = b[column];
 
-        if (incident.victimGroup) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Affected Community</p>
-                        <p class="text-gray-500">${this.escapeHtml(incident.victimGroup)}</p>
-                    </div>
-                </div>
-            `);
-        }
-
-        if (incident.incidentType) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Incident Type</p>
-                        <p class="text-gray-500">${this.escapeHtml(incident.incidentType)}</p>
-                    </div>
-                </div>
-            `);
-        }
-
-        if (incident.sourceUrl) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Source</p>
-                        <a href="${this.escapeHtml(incident.sourceUrl)}" 
-                           target="_blank" 
-                           rel="noopener noreferrer" 
-                           class="text-primary-600 hover:text-primary-700 hover:underline">
-                            ${this.escapeHtml(incident.sourceName || 'View Source')}
-                        </a>
-                    </div>
-                </div>
-            `);
-        }
-
-        if (incident.summary) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Summary</p>
-                        <p class="text-gray-500">${this.escapeHtml(incident.summary)}</p>
-                    </div>
-                </div>
-            `);
-        }
-
-        if (incident.lastUpdated) {
-            details.push(`
-                <div class="flex items-start space-x-2">
-                    <svg class="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                        <p class="font-medium text-gray-900">Last Updated</p>
-                        <p class="text-gray-500">${new Date(incident.lastUpdated).toLocaleString()}</p>
-                    </div>
-                </div>
-            `);
-        }
-
-        modalContent.innerHTML = `
-            <div class="space-y-4">
-                ${details.join('')}
-            </div>
-        `;
-
-        modal.classList.remove('hidden');
-
-        // Close modal when clicking outside
-        const closeModal = (e) => {
-            if (e.target === modal) {
-                modal.classList.add('hidden');
-                modal.removeEventListener('click', closeModal);
+            // Handle date sorting
+            if (column === 'incident_date') {
+                aVal = new Date(aVal);
+                bVal = new Date(bVal);
             }
+
+            // Handle string sorting
+            if (typeof aVal === 'string') {
+                aVal = aVal.toLowerCase();
+                bVal = bVal.toLowerCase();
+            }
+
+            if (aVal < bVal) {
+                return this.sortDirection === 'asc' ? -1 : 1;
+            }
+            if (aVal > bVal) {
+                return this.sortDirection === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+
+        this.currentPage = 1;
+        this.render();
+        this.updateSortHeaders();
+    }
+
+    updateSortHeaders() {
+        const headers = document.querySelectorAll('[data-sort]');
+        headers.forEach(header => {
+            const sortIcon = header.querySelector('.sort-icon');
+            if (sortIcon) {
+                if (header.getAttribute('data-sort') === this.sortColumn) {
+                    sortIcon.textContent = this.sortDirection === 'asc' ? '↑' : '↓';
+                    sortIcon.classList.remove('text-gray-400');
+                    sortIcon.classList.add('text-gray-600', 'dark:text-gray-300');
+                } else {
+                    sortIcon.textContent = '↕';
+                    sortIcon.classList.remove('text-gray-600', 'dark:text-gray-300');
+                    sortIcon.classList.add('text-gray-400');
+                }
+            }
+        });
+    }
+
+    previousPage() {
+        if (this.currentPage > 1) {
+            this.currentPage--;
+            this.render();
+        }
+    }
+
+    nextPage() {
+        const totalPages = Math.ceil(this.filteredIncidents.length / this.itemsPerPage);
+        if (this.currentPage < totalPages) {
+            this.currentPage++;
+            this.render();
+        }
+    }
+
+    updateTable(incidents) {
+        console.log('[table] Updating table with', incidents.length, 'incidents');
+        this.filteredIncidents = incidents;
+        this.currentPage = 1;
+        this.render();
+    }
+
+    formatDate(dateString) {
+        if (!dateString) return 'Unknown';
+        try {
+            return new Date(dateString).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return 'Invalid Date';
+        }
+    }
+
+    getVictimGroupColor(group) {
+        const colors = {
+            'Dalit': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+            'Muslim': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+            'Christian': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+            'Adivasi': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+            'Sikh': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+            'Hindu': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
         };
-        modal.addEventListener('click', closeModal);
 
-        // Close modal when clicking close button
-        const closeButton = document.getElementById('closeModal');
-        if (closeButton) {
-            const closeButtonHandler = () => {
-                modal.classList.add('hidden');
-                closeButton.removeEventListener('click', closeButtonHandler);
-            };
-            closeButton.addEventListener('click', closeButtonHandler);
+        for (const [key, color] of Object.entries(colors)) {
+            if (group.toLowerCase().includes(key.toLowerCase())) {
+                return color;
+            }
         }
-    }
 
-    showError(message) {
-        // Create error notification
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50';
-        notification.innerHTML = `
-            <div class="flex items-center">
-                <svg class="h-5 w-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>${this.escapeHtml(message)}</span>
-            </div>
-        `;
-        document.body.appendChild(notification);
-        
-        // Remove notification after 5 seconds
-        setTimeout(() => notification.remove(), 5000);
-    }
-
-    createConfidenceBadge(score) {
-        if (!score && score !== 0) return '';
-        
-        let bgColor, textColor, label;
-        
-        if (score >= 0.8) {
-            bgColor = 'bg-green-100';
-            textColor = 'text-green-800';
-            label = 'High';
-        } else if (score >= 0.6) {
-            bgColor = 'bg-yellow-100';
-            textColor = 'text-yellow-800';
-            label = 'Medium';
-        } else {
-            bgColor = 'bg-red-100';
-            textColor = 'text-red-800';
-            label = 'Low';
-        }
-        
-        return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${bgColor} ${textColor}">
-            Confidence: ${label} (${Math.round(score * 100)}%)
-        </span>`;
-    }
-
-    createVerifiedBadge(isVerified) {
-        if (isVerified === null || isVerified === undefined) return '';
-        
-        if (isVerified) {
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                </svg>
-                Verified
-            </span>`;
-        } else {
-            return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
-                </svg>
-                Unverified
-            </span>`;
-        }
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
 
     escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') return '';
+        if (!unsafe) return '';
         return unsafe
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
@@ -518,6 +271,6 @@ class TableManager {
     }
 }
 
-// Create and export a singleton instance
+// Create and export singleton instance
 const tableManager = new TableManager();
 export default tableManager; 

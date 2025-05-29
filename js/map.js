@@ -30,6 +30,13 @@ class MapManager {
     async initialize(incidents) {
         console.log('[map] Starting map initialization');
         
+        // If already initialized, just update the map
+        if (this.initialized && this.map) {
+            console.log('[map] Map already initialized, updating instead');
+            this.updateMap(incidents);
+            return;
+        }
+
         try {
             console.log('[map] Starting fresh map initialization');
             
@@ -53,28 +60,21 @@ class MapManager {
             // Clean up any existing map instance
             if (this.map) {
                 console.log('[map] Removing existing map instance');
-                try {
-                    this.map.remove();
-                } catch (e) {
-                    console.warn('[map] Error removing existing map:', e);
-                }
+                this.map.remove();
                 this.map = null;
                 this.markers = null;
-                this.initialized = false;
             }
             
-            // Clear the container completely and reset all Leaflet state
+            // Clear the container to ensure it's clean
             mapContainer.innerHTML = '';
-            mapContainer.className = mapContainer.className.replace(/leaflet-\S*/g, '').trim();
-            mapContainer.style.cssText = 'height: 384px; position: relative;';
             
-            // Remove any existing Leaflet data attributes
-            if (mapContainer._leaflet_id) {
-                delete mapContainer._leaflet_id;
+            // Remove any Leaflet-specific classes that might interfere
+            mapContainer.className = mapContainer.className.replace(/leaflet-\S+/g, '').trim();
+            
+            // Ensure container has proper styling
+            if (!mapContainer.style.height) {
+                mapContainer.style.height = '384px'; // h-96 equivalent
             }
-            
-            // Small delay to ensure DOM is clean
-            await new Promise(resolve => setTimeout(resolve, 100));
 
             // Initialize map with India's center
             console.log('[map] Creating Leaflet map');
@@ -135,6 +135,17 @@ class MapManager {
 
             this.initialized = true;
             console.log('[map] Map initialization complete');
+            
+            // Add a visible marker just to test the map is working
+            const testMarker = L.marker([20.5937, 78.9629], {
+                icon: L.divIcon({
+                    html: `<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+                    className: 'test-marker',
+                    iconSize: [20, 20]
+                })
+            });
+            testMarker.addTo(this.map);
+            console.log('[map] Added test marker to verify map is working');
             
             // Update with real incidents
             this.updateMap(incidents);

@@ -1,690 +1,308 @@
-// INDIA VIOLENCE TRACKER - LIVE DATA VERSION: 2024-06-07-FIXED-FIELDS
-// Force update for GitHub Pages deployment
-// Data manager module
-import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm';
-
-// Google Sheets published CSV URL (from public_json_data sheet) - LIVE DATA
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
-const SHEET_PROXY = "https://corsproxy.io/?"; // Changed to a more reliable CORS proxy
-
-// Field mapping from actual CSV headers to JS properties (matching the real CSV structure)
-const FIELD_MAP = {
-    'incident_id': 'incident_id',
-    'headline': 'title',
-    'summary': 'summary',
-    'incident_date': 'incident_date',
-    'published_at': 'published_at',
-    'location': 'location_summary',
-    'district': 'district',
-    'state': 'state',
-    'lat': 'lat',
-    'lon': 'lon',
-    'victim_group': 'victim_group',
-    'incident_type': 'incident_type',
-    'alleged_perp': 'alleged_perp',
-    'police_action': 'police_action',
-    'source_url': 'source_url',
-    'source_name': 'source_name',
-    'rss_feed_id': 'rss_feed_id',
-    'confidence_score': 'confidence_score',
-    'verified_manually': 'verified_manually'
-};
-
+// Data manager for India violence tracker
 class DataManager {
     constructor() {
         this.incidents = [];
-        this.lastUpdated = null;
-        this.stats = {
-            weeklyCount: 0,
-            monthlyCount: 0,
-            mappableCount: 0,
-            topStates: [],
-            mostAffectedState: 'N/A'
-        };
-        this.loading = false;
-        this.error = null;
-        this.useMockData = false; // Disabled mock data for production
+        this.isLoaded = false;
+        this.csvUrl = './assets/india dalit violence - PublicData (1).csv';
     }
 
-    async fetchData() {
-        if (this.loading) {
-            console.warn('[fetch] Already loading data, skipping...');
-            return false;
-        }
-        
-        this.loading = true;
-        this.error = null;
+    async loadData() {
+        console.log('[data] Starting data load...');
         
         try {
-            console.info('[fetch] Starting data fetch...');
-            console.time('[fetch] Total fetch time');
-            
-            // Show loading state
-            document.getElementById('loader')?.classList.remove('hidden');
-            document.getElementById('errorBanner')?.classList.add('hidden');
-            
-            // For debugging - alert that we're starting
-            console.log('[DEBUG] Starting data fetch operation - checking URL and proxy configuration');
-            
-            // Try direct fetch first
-            console.info('[fetch] Attempting direct fetch from:', SHEET_URL);
-            let response = await fetch(SHEET_URL, { 
-                mode: 'cors',
-                cache: 'no-cache' // Disable caching
-            });
-            
-            // If CORS fails, use proxy
+            const response = await fetch(this.csvUrl);
             if (!response.ok) {
-                console.warn('[fetch] Direct fetch failed:', response.status, response.statusText);
-                console.info('[fetch] Trying CORS proxy...');
-                const proxyUrl = SHEET_PROXY + encodeURIComponent(SHEET_URL);
-                console.info('[fetch] Proxy URL:', proxyUrl);
-                response = await fetch(proxyUrl, { cache: 'no-cache' });
+                throw new Error(`Failed to fetch CSV: ${response.status} ${response.statusText}`);
             }
-            
-                if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
-            }
-            
-            console.info('[fetch] Response status:', response.status);
-            console.info('[fetch] Content type:', response.headers.get('content-type'));
             
             const csvText = await response.text();
-            console.info('[fetch] Received CSV data length:', csvText.length);
-            console.log('[DEBUG] First 100 chars of CSV:', csvText.substring(0, 100));
+            console.log('[data] CSV fetched, size:', csvText.length, 'characters');
             
-            console.time('[parse] CSV parsing');
-            const { data, errors } = Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                transformHeader: header => header.trim().toLowerCase()
-            });
-            console.timeEnd('[parse] CSV parsing');
-            
-            if (errors.length) {
-                console.warn('[parse] CSV parsing errors:', errors);
-            }
-            
-            console.info('[parse] Parsed rows:', data.length);
-            console.log('[DEBUG] First row sample:', JSON.stringify(data[0]));
-            
-            // Map fields and clean data
-            console.time('[parse] Data processing');
-            
-            // Count processing statistics
-            let totalRows = data.length;
-            let validCoordinates = 0;
-            let missingCoordinates = 0;
-            let invalidCoordinates = 0;
-            
-            // Enhanced processing with retry logic for invalid coordinates
-            let processedIncidents = [];
-            
-            for (let i = 0; i < data.length; i++) {
-                const row = data[i];
-                const incident = {};
-                
-                // Map fields from CSV to internal representation
-                Object.entries(FIELD_MAP).forEach(([oldKey, newKey]) => {
-                    if (row[oldKey] !== undefined) {
-                        incident[newKey] = row[oldKey].trim();
+            // Parse CSV using PapaParse
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    transformHeader: function(header) {
+                        // Clean up headers
+                        return header.trim().toLowerCase();
+                    },
+                    transform: function(value, header) {
+                        // Clean up values
+                        return value ? value.trim() : '';
+                    },
+                    complete: (results) => {
+                        console.log('[data] CSV parsing complete');
+                        console.log('[data] Total rows parsed:', results.data.length);
+                        console.log('[data] Parse errors:', results.errors.length);
+                        
+                        if (results.errors.length > 0) {
+                            console.warn('[data] Parse errors:', results.errors);
+                        }
+                        
+                        if (results.data.length === 0) {
+                            reject(new Error('No data found in CSV'));
+                            return;
+                        }
+
+                        // Process and normalize the data
+                        this.incidents = this.processIncidents(results.data);
+                        console.log('[data] Processed incidents:', this.incidents.length);
+                        
+                        // Log sample of processed data for debugging
+                        if (this.incidents.length > 0) {
+                            console.log('[data] Sample processed incident:', JSON.stringify(this.incidents[0], null, 2));
+                        }
+                        
+                        this.isLoaded = true;
+                        resolve(this.incidents);
+                    },
+                    error: (error) => {
+                        console.error('[data] CSV parsing error:', error);
+                        reject(new Error(`CSV parsing failed: ${error.message}`));
                     }
                 });
-                
-                // Process and validate coordinates
-                const processedIncident = this.processCoordinates(incident, i, row);
-                
-                // Only keep incidents with victim_group (mandatory field)
-                if (processedIncident && processedIncident.victim_group) {
-                    processedIncidents.push(processedIncident);
+            });
+        } catch (error) {
+            console.error('[data] Error loading data:', error);
+            throw new Error(`Data loading failed: ${error.message}`);
+        }
+    }
+
+    processIncidents(rawData) {
+        console.log('[data] Processing raw data...');
+        
+        // Log first raw row to understand structure
+        if (rawData.length > 0) {
+            console.log('[data] First raw row keys:', Object.keys(rawData[0]));
+            console.log('[data] First raw row:', JSON.stringify(rawData[0], null, 2));
+        }
+        
+        const processed = rawData
+            .map((row, index) => {
+                try {
+                    // Map CSV columns to our data structure
+                    const incident = {
+                        incident_id: row.incident_id || `incident_${index}`,
+                        title: row.headline || 'Untitled Incident',
+                        summary: row.summary || '',
+                        incident_date: this.parseDate(row.incident_date || row.published_at) || new Date().toISOString().split('T')[0],
+                        published_at: row.published_at || '',
+                        location_summary: this.buildLocationSummary(row),
+                        district: row.district || '',
+                        state: row.state || '',
+                        lat: this.parseCoordinate(row.lat),
+                        lon: this.parseCoordinate(row.lon),
+                        victim_group: row.victim_group || 'Unknown',
+                        incident_type: row.incident_type || 'Unknown',
+                        alleged_perp: row.alleged_perp || '',
+                        police_action: row.police_action || '',
+                        source_url: row.source_url || '',
+                        source_name: row.source_name || '',
+                        confidence_score: row.confidence_score || 'Unknown',
+                        verified_manually: row.verified_manually || '',
+                        
+                        // Additional computed fields
+                        has_coordinates: this.hasValidCoordinates(row.lat, row.lon),
+                        date_formatted: this.formatDate(row.incident_date || row.published_at),
+                        year: this.extractYear(row.incident_date || row.published_at)
+                    };
                     
-                    // Count for statistics
-                    if (processedIncident.lat !== null && processedIncident.lon !== null) {
-                        validCoordinates++;
-                    } else {
-                        missingCoordinates++;
-                    }
-                } else {
-                    invalidCoordinates++;
+                    return incident;
+                } catch (error) {
+                    console.warn(`[data] Error processing row ${index}:`, error, row);
+                    return null;
                 }
-            }
+            })
+            .filter(incident => incident !== null);
             
-            this.incidents = processedIncidents;
-            
-            // Log detailed statistics
-            console.info(`[parse] Processing statistics:
-                Total rows: ${totalRows}
-                Valid incidents with coordinates: ${validCoordinates}
-                Valid incidents without coordinates: ${missingCoordinates}
-                Invalid incidents (filtered out): ${invalidCoordinates}
-                Total incidents kept: ${this.incidents.length}
-            `);
-            
-            // Debug output - display first few incidents for coordinates check
-            console.log('[DEBUG] First 3 incidents after processing:');
-            this.incidents.slice(0, 3).forEach((incident, i) => {
-                console.log(`Incident ${i+1}:`, JSON.stringify({
-                    title: incident.title,
-                    incident_date: incident.incident_date,
-                    published_at: incident.published_at,
-                    location_summary: incident.location_summary,
-                    state: incident.state,
-                    district: incident.district,
-                    victim_group: incident.victim_group,
-                    incident_type: incident.incident_type,
-                    lat: incident.lat,
-                    lon: incident.lon,
-                    latType: typeof incident.lat,
-                    lonType: typeof incident.lon,
-                    source_url: incident.source_url,
-                    source_name: incident.source_name
-                }, null, 2));
-            });
-            
-            console.timeEnd('[parse] Data processing');
-            
-            this.lastUpdated = new Date();
-            this.updateStats();
-            
-            console.timeEnd('[fetch] Total fetch time');
-            console.info('[fetch] Data fetch completed successfully');
-            
-            // Show warning if no valid coordinates
-            if (validCoordinates === 0 && this.incidents.length > 0) {
-                console.error('[fetch] WARNING: No incidents have valid coordinates! Map will be empty.');
-                document.getElementById('errorBanner').textContent = 'Warning: No mappable incidents found. The map will be empty.';
-                document.getElementById('errorBanner')?.classList.remove('hidden');
-            }
-            
-            return true;
-            
-        } catch (error) {
-            console.error('[fetch] Error fetching data:', error);
-            this.error = error.message;
-            document.getElementById('errorBanner').textContent = `Error loading data: ${error.message}`;
-            document.getElementById('errorBanner')?.classList.remove('hidden');
-            return false;
-        } finally {
-            this.loading = false;
-            document.getElementById('loader')?.classList.add('hidden');
-            console.info('[fetch] Loading state cleared');
-        }
+        console.log('[data] Successfully processed', processed.length, 'incidents');
+        console.log('[data] Incidents with coordinates:', processed.filter(i => i.has_coordinates).length);
+        
+        return processed;
     }
 
-    getMockData() {
-        // Mock data for development and testing
-        const mockIncidents = [];
-        const states = ['Delhi', 'Maharashtra', 'Karnataka', 'Tamil Nadu', 'West Bengal', 'Gujarat', 'Rajasthan', 'Uttar Pradesh'];
-        const victimGroups = ['Dalit', 'Adivasi', 'Muslim', 'Christian', 'Sikh', 'Other Minority'];
-        const incidentTypes = ['Physical Violence', 'Verbal Abuse', 'Discrimination', 'Property Damage', 'Social Boycott'];
-        const policeActions = ['FIR Filed', 'Investigation Ongoing', 'No Action', 'Case Closed', 'Arrest Made'];
-        
-        // Generate 50 mock incidents
-        for (let i = 0; i < 50; i++) {
-            const date = new Date();
-            date.setDate(date.getDate() - Math.floor(Math.random() * 90)); // Last 90 days
-            
-            const state = states[Math.floor(Math.random() * states.length)];
-            const victimGroup = victimGroups[Math.floor(Math.random() * victimGroups.length)];
-            const incidentType = incidentTypes[Math.floor(Math.random() * incidentTypes.length)];
-            
-            mockIncidents.push({
-                incident_id: `INC_${String(i + 1).padStart(3, '0')}`,
-                title: `${incidentType} incident reported in ${state}`,
-                summary: `A case of ${incidentType.toLowerCase()} against a ${victimGroup} person was reported. Local authorities have been notified.`,
-                incident_date: date.toISOString().split('T')[0],
-                published_at: date.toISOString(),
-                location_summary: `Near ${state} City Center`,
-                district: `District ${i + 1}`,
-                state: state,
-                lat: 20 + Math.random() * 15, // India latitude range
-                lon: 68 + Math.random() * 30, // India longitude range
-                victim_group: victimGroup,
-                incident_type: incidentType,
-                alleged_perp: 'Unknown',
-                police_action: policeActions[Math.floor(Math.random() * policeActions.length)],
-                source_url: `https://example.com/news/${i}`,
-                source_name: `News Source ${Math.floor(Math.random() * 5) + 1}`,
-                rss_feed_id: `feed_${Math.floor(Math.random() * 5)}`,
-                confidence_score: Math.random() < 0.3 ? 'Low' : Math.random() < 0.7 ? 'Medium' : 'High',
-                verified_manually: Math.random() < 0.3 ? 'TRUE' : 'FALSE'
-            });
+    parseCoordinate(value) {
+        if (!value || value === '' || value === null || value === undefined) {
+            return null;
         }
         
-        return {
-            lastUpdated: new Date().toISOString(),
-            totalIncidents: mockIncidents.length,
-            data: mockIncidents
-        };
+        const parsed = parseFloat(value);
+        
+        // Check if it's a valid number and within reasonable coordinate bounds
+        if (isNaN(parsed) || !isFinite(parsed)) {
+            return null;
+        }
+        
+        // Basic coordinate validation (rough bounds for Earth)
+        if (parsed < -180 || parsed > 180) {
+            return null;
+        }
+        
+        return parsed;
     }
 
-    updateStats() {
-        console.time('[stats] Update statistics');
-        const now = new Date();
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-        // Count incidents by time period using new field names
-        this.stats.weeklyCount = this.incidents.filter(incident => {
-            const incidentDate = new Date(incident.incident_date || incident.published_at);
-            return incidentDate >= oneWeekAgo;
-        }).length;
-
-        this.stats.monthlyCount = this.incidents.filter(incident => {
-            const incidentDate = new Date(incident.incident_date || incident.published_at);
-            return incidentDate >= oneMonthAgo;
-        }).length;
-
-        // Count incidents with valid coordinates
-        this.stats.mappableCount = this.incidents.filter(incident => 
-            incident.lat !== null && incident.lon !== null &&
-            !isNaN(parseFloat(incident.lat)) && !isNaN(parseFloat(incident.lon))
-        ).length;
-
-        // Find most affected states (top 5)
-        const stateCounts = {};
-        this.incidents.forEach(incident => {
-            if (incident.state) {
-                const normalizedState = incident.state.trim();
-                if (normalizedState) {
-                    stateCounts[normalizedState] = (stateCounts[normalizedState] || 0) + 1;
-                }
-            }
-        });
-
-        // Sort states by incident count (descending)
-        const sortedStates = Object.entries(stateCounts)
-            .sort(([,a], [,b]) => b - a);
+    hasValidCoordinates(lat, lon) {
+        const parsedLat = this.parseCoordinate(lat);
+        const parsedLon = this.parseCoordinate(lon);
         
-        // Get top 5 states
-        this.stats.topStates = sortedStates.slice(0, 5).map(([state, count]) => ({
-            state,
-            count
-        }));
-
-        // For backward compatibility
-        this.stats.mostAffectedState = sortedStates.length > 0 ? sortedStates[0][0] : 'N/A';
-        
-        // Calculate percentage of mappable incidents
-        const mappablePercentage = this.incidents.length > 0 
-            ? Math.round((this.stats.mappableCount / this.incidents.length) * 100) 
-            : 0;
-        
-        console.info(`[stats] Updated: ${this.incidents.length} total incidents, ${this.stats.mappableCount} mappable (${mappablePercentage}%)`);
-        console.timeEnd('[stats] Update statistics');
-        
-        // Update UI elements with stats
-        this.updateStatsUI();
+        return parsedLat !== null && parsedLon !== null &&
+               parsedLat >= -90 && parsedLat <= 90 &&
+               parsedLon >= -180 && parsedLon <= 180;
     }
-    
-    // New method to update UI elements with stats
-    updateStatsUI() {
+
+    buildLocationSummary(row) {
+        const parts = [];
+        
+        if (row.location) parts.push(row.location);
+        if (row.district && row.district !== row.location) parts.push(row.district);
+        if (row.state && row.state !== row.district) parts.push(row.state);
+        
+        return parts.length > 0 ? parts.join(', ') : 'Location not specified';
+    }
+
+    parseDate(dateString) {
+        if (!dateString) return null;
+        
         try {
-            // Update counter elements
-            const totalCountElement = document.getElementById('totalCount');
-            if (totalCountElement) {
-                totalCountElement.textContent = this.incidents.length.toString();
+            // Handle various date formats
+            let date = new Date(dateString);
+            
+            // If invalid, try to parse manually
+            if (isNaN(date.getTime())) {
+                // Try different formats
+                const formats = [
+                    /(\d{4})-(\d{2})-(\d{2})/,  // YYYY-MM-DD
+                    /(\d{2})\/(\d{2})\/(\d{4})/, // MM/DD/YYYY
+                    /(\d{2})-(\d{2})-(\d{4})/   // MM-DD-YYYY
+                ];
+                
+                for (const format of formats) {
+                    const match = dateString.match(format);
+                    if (match) {
+                        date = new Date(match[1], match[2] - 1, match[3]);
+                        break;
+                    }
+                }
             }
             
-            const mappableCountElement = document.getElementById('mappableCount');
-            if (mappableCountElement) {
-                mappableCountElement.textContent = this.stats.mappableCount.toString();
-            }
-            
-            const weeklyCountElement = document.getElementById('weeklyCount');
-            if (weeklyCountElement) {
-                weeklyCountElement.textContent = this.stats.weeklyCount.toString();
-            }
-            
-            const monthlyCountElement = document.getElementById('monthlyCount');
-            if (monthlyCountElement) {
-                monthlyCountElement.textContent = this.stats.monthlyCount.toString();
-            }
-            
-            // Update most affected state
-            const mostAffectedStateElement = document.getElementById('mostAffectedState');
-            if (mostAffectedStateElement && this.stats.topStates.length > 0) {
-                mostAffectedStateElement.textContent = this.stats.topStates[0].state;
-            }
-            
-            // Update last updated timestamp
-            const lastUpdatedElement = document.getElementById('lastUpdated');
-            if (lastUpdatedElement && this.lastUpdated) {
-                const options = { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                };
-                lastUpdatedElement.textContent = this.lastUpdated.toLocaleDateString(undefined, options);
-            }
-            
-            // Update footer timestamp if it exists
-            const footerLastUpdated = document.getElementById('footer-last-updated');
-            if (footerLastUpdated && this.lastUpdated) {
-                const options = { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric'
-                };
-                footerLastUpdated.textContent = this.lastUpdated.toLocaleDateString(undefined, options);
-            }
+            return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
         } catch (error) {
-            console.error('[stats] Error updating UI with stats:', error);
+            console.warn('[data] Date parsing error:', error, dateString);
+            return null;
         }
     }
 
-    getStats() {
-        return {
-            ...this.stats,
-            totalCount: this.incidents.length,
-            mappableCount: this.stats.mappableCount || 0,
-            topStates: this.stats.topStates || [],
-            lastUpdated: this.lastUpdated
-        };
+    formatDate(dateString) {
+        const date = this.parseDate(dateString);
+        if (!date) return 'Unknown Date';
+        
+        try {
+            return new Date(date).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (error) {
+            return date;
+        }
     }
 
-    getIncidents() {
-        return this.incidents;
+    extractYear(dateString) {
+        const date = this.parseDate(dateString);
+        if (!date) return new Date().getFullYear();
+        
+        try {
+            return new Date(date).getFullYear();
+        } catch (error) {
+            return new Date().getFullYear();
+        }
     }
 
-    getFilteredIncidents(filters = {}) {
-        return this.incidents.filter(incident => {
-            if (filters.search && !this.matchesSearch(incident, filters.search)) {
-                return false;
-            }
-            if (filters.state && incident.state !== filters.state) {
-                return false;
-            }
-            if (filters.victimGroup && incident.victim_group !== filters.victimGroup) {
-                return false;
-            }
-            if (filters.incidentType && incident.incident_type !== filters.incidentType) {
-                return false;
-            }
-            if (filters.dateFrom) {
-                const incidentDate = new Date(incident.incident_date || incident.published_at);
-                const fromDate = new Date(filters.dateFrom);
-                if (incidentDate < fromDate) {
-                    return false;
-                }
-            }
-            if (filters.dateTo) {
-                const incidentDate = new Date(incident.incident_date || incident.published_at);
-                const toDate = new Date(filters.dateTo);
-                if (incidentDate > toDate) {
-                    return false;
-                }
-            }
-            return true;
-        });
-    }
-
-    matchesSearch(incident, searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-            (incident.title && incident.title.toLowerCase().includes(searchLower)) ||
-            (incident.summary && incident.summary.toLowerCase().includes(searchLower)) ||
-            (incident.district && incident.district.toLowerCase().includes(searchLower)) ||
-            (incident.state && incident.state.toLowerCase().includes(searchLower)) ||
-            (incident.victim_group && incident.victim_group.toLowerCase().includes(searchLower)) ||
-            (incident.incident_type && incident.incident_type.toLowerCase().includes(searchLower)) ||
-            (incident.alleged_perp && incident.alleged_perp.toLowerCase().includes(searchLower))
+    // Filter methods
+    filterByState(state) {
+        if (!state || state === 'all') return this.incidents;
+        return this.incidents.filter(incident => 
+            incident.state && incident.state.toLowerCase().includes(state.toLowerCase())
         );
     }
 
-    getUniqueStates() {
-        return [...new Set(this.incidents
-            .filter(incident => incident.state)
-            .map(incident => incident.state)
-        )].sort();
+    filterByVictimGroup(group) {
+        if (!group || group === 'all') return this.incidents;
+        return this.incidents.filter(incident => 
+            incident.victim_group && incident.victim_group.toLowerCase().includes(group.toLowerCase())
+        );
     }
 
-    getUniqueVictimGroups() {
-        return [...new Set(this.incidents
-            .filter(incident => incident.victim_group)
-            .map(incident => incident.victim_group)
-        )].sort();
+    filterByIncidentType(type) {
+        if (!type || type === 'all') return this.incidents;
+        return this.incidents.filter(incident => 
+            incident.incident_type && incident.incident_type.toLowerCase().includes(type.toLowerCase())
+        );
     }
 
-    getUniqueIncidentTypes() {
-        return [...new Set(this.incidents
-            .filter(incident => incident.incident_type)
-            .map(incident => incident.incident_type)
-        )].sort();
+    filterByDateRange(startDate, endDate) {
+        return this.incidents.filter(incident => {
+            const incidentDate = new Date(incident.incident_date);
+            const start = startDate ? new Date(startDate) : new Date('1900-01-01');
+            const end = endDate ? new Date(endDate) : new Date();
+            
+            return incidentDate >= start && incidentDate <= end;
+        });
     }
 
-    processCoordinates(incident, index, rawRow) {
-        console.debug(`[parse] Row ${index}: Processing coordinates for incident: ${incident.title}`);
+    searchIncidents(query) {
+        if (!query || query.length < 2) return this.incidents;
         
-        // Enhanced function to clean coordinate values
-        const cleanValue = (val) => {
-            if (val === undefined || val === null) return null;
-            
-            // Convert to string and clean
-            let clean = String(val).trim();
-            
-            // Handle special cases
-            if (clean === '' || clean === '0' || clean.toLowerCase() === 'null' || clean.toLowerCase() === 'undefined') {
-                return null;
-            }
-            
-            // Handle coordinate format variations
-            // Try to preserve the basic structure but normalize formatting
-            
-            // First check if the value might be a coordinate pair like "28.7041, 77.1025"
-            if (clean.includes(',') && !clean.includes('°')) {
-                // This might be a pair - extract just the first number
-                clean = clean.split(',')[0].trim();
-            }
-            
-            // Handle degree formats like 28°42'14.8"N
-            if (clean.includes('°')) {
-                // This is likely in DMS format - need special handling
-                try {
-                    // Extract the main components (degrees, possibly minutes, seconds)
-                    const degrees = parseFloat(clean.split('°')[0].trim());
-                    
-                    // Check for direction (N/S/E/W)
-                    const isNegative = 
-                        clean.toUpperCase().includes('S') || 
-                        clean.toUpperCase().includes('W');
-                        
-                    // Simple conversion - just use the degrees part
-                    return isNegative ? -degrees : degrees;
-                } catch (e) {
-                    console.warn(`[parse] Row ${index}: Failed to parse DMS format: ${clean}`);
-                    // Just use the number at the beginning
-                    const match = clean.match(/^\d+(\.\d+)?/);
-                    return match ? match[0] : null;
-                }
-            }
-            
-            // Handle comma as decimal separator
-            clean = clean.replace(/,/g, '.');
-            
-            // For standard decimal format, extract just the numeric part
-            const match = clean.match(/-?\d+(\.\d+)?/);
-            if (match) {
-                return match[0];
-            }
-            
-            return null;
-        };
-        
-        // Expanded India bounds check to be more lenient
-        // Normal India: ~6° to 37°N, ~68° to 98°E
-        // Extended bounds for neighbor areas and minor errors
-        const isWithinExtendedBounds = (lat, lon) => {
-            // Even more lenient bounds (includes neighboring countries and accounts for errors)
-            return lat >= 0 && lat <= 45 && lon >= 60 && lon <= 105;
-        };
-        
-        // Try to extract valid coordinates
-        let latRaw = incident.lat;
-        let lonRaw = incident.lon;
-        
-        // Debug raw values
-        console.debug(`[parse] Row ${index}: Raw values - lat=${latRaw}, lon=${lonRaw}, types: lat=${typeof latRaw}, lon=${typeof lonRaw}`);
-        
-        // Clean and prepare values
-        let latClean = cleanValue(latRaw);
-        let lonClean = cleanValue(lonRaw);
-        
-        // Debug after cleaning
-        console.debug(`[parse] Row ${index}: Cleaned values - lat=${latClean}, lon=${lonClean}`);
-        
-        // Convert to numbers
-        let latNum = latClean !== null ? parseFloat(latClean) : null;
-        let lonNum = lonClean !== null ? parseFloat(lonClean) : null;
-        
-        // Debug after parsing
-        console.debug(`[parse] Row ${index}: Parsed values - lat=${latNum}, lon=${lonNum}, valid: lat=${!isNaN(latNum) && latNum !== null}, lon=${!isNaN(lonNum) && lonNum !== null}`);
-        
-        // Check if values are valid numbers
-        const isLatValid = latNum !== null && !isNaN(latNum) && isFinite(latNum);
-        const isLonValid = lonNum !== null && !isNaN(lonNum) && isFinite(lonNum);
-        
-        // Try to handle different cases and recover coordinates
-        if (isLatValid && isLonValid) {
-            // Both values are valid numbers
-            
-            // Check if they're within expanded India bounds
-            if (isWithinExtendedBounds(latNum, lonNum)) {
-                // Standard case: valid coordinates in expected range
-                incident.lat = latNum;
-                incident.lon = lonNum;
-                console.info(`[parse] Row ${index}: Valid coordinates: [${latNum}, ${lonNum}] for: ${incident.title}`);
-            }
-            // Check if coordinates might be swapped
-            else if (isWithinExtendedBounds(lonNum, latNum)) {
-                // Fix swapped coordinates
-                incident.lat = lonNum;
-                incident.lon = latNum;
-                console.info(`[parse] Row ${index}: Fixed swapped coordinates: [${lonNum}, ${latNum}] for: ${incident.title}`);
-            }
-            // Accept coordinates outside bounds but with warning
-            else {
-                // Accept but warn about unusual coordinates
-                incident.lat = latNum;
-                incident.lon = lonNum;
-                console.warn(`[parse] Row ${index}: Unusual coordinates outside India bounds: [${latNum}, ${lonNum}] for: ${incident.title}, but accepting them`);
-            }
-        }
-        // Handle case where only one coordinate is valid
-        else if (isLatValid && !isLonValid) {
-            // Only latitude is valid
-            if (isWithinExtendedBounds(latNum, 78)) { // Use approximate center longitude for India
-                // Try to estimate a reasonable longitude (center of India as fallback)
-                console.warn(`[parse] Row ${index}: Only lat ${latNum} is valid, using estimated lon for: ${incident.title}`);
-                incident.lat = latNum;
-                incident.lon = 78.9629; // Approximate central longitude for India
-            } else {
-                console.warn(`[parse] Row ${index}: Invalid lat/lon combination: lat=${latNum}, lon=${lonRaw}`);
-                incident.lat = null;
-                incident.lon = null;
-            }
-        }
-        else if (!isLatValid && isLonValid) {
-            // Only longitude is valid
-            if (isWithinExtendedBounds(20.5, lonNum)) { // Use approximate center latitude for India
-                // Try to estimate a reasonable latitude (center of India as fallback)
-                console.warn(`[parse] Row ${index}: Only lon ${lonNum} is valid, using estimated lat for: ${incident.title}`);
-                incident.lat = 20.5937; // Approximate central latitude for India
-                incident.lon = lonNum;
-            } else {
-                console.warn(`[parse] Row ${index}: Invalid lat/lon combination: lat=${latRaw}, lon=${lonNum}`);
-                incident.lat = null;
-                incident.lon = null;
-            }
-        }
-        // Fallback case - set to null if we couldn't recover coordinates
-        else {
-            console.warn(`[parse] Row ${index}: No valid coordinates could be extracted: lat=${latRaw}, lon=${lonRaw}`);
-            
-            // As a last resort, try to use district/state info to estimate coordinates
-            if (incident.state && typeof incident.state === 'string') {
-                const stateCoordinates = this.getStateCoordinates(incident.state);
-                if (stateCoordinates) {
-                    incident.lat = stateCoordinates.lat;
-                    incident.lon = stateCoordinates.lon;
-                    console.info(`[parse] Row ${index}: Using state coordinates for ${incident.state}: [${incident.lat}, ${incident.lon}]`);
-                } else {
-                    console.warn(`[parse] Row ${index}: Could not find coordinates for state: ${incident.state}`);
-                    // Default to center of India as absolute last resort
-                    incident.lat = 20.5937;
-                    incident.lon = 78.9629;
-                    console.info(`[parse] Row ${index}: Using default India coordinates as last resort`);
-                }
-            } else {
-                incident.lat = null;
-                incident.lon = null;
-                console.warn(`[parse] Row ${index}: No state information available for fallback coordinates`);
-            }
-        }
-        
-        return incident;
+        const searchTerm = query.toLowerCase();
+        return this.incidents.filter(incident => 
+            incident.title.toLowerCase().includes(searchTerm) ||
+            incident.summary.toLowerCase().includes(searchTerm) ||
+            incident.location_summary.toLowerCase().includes(searchTerm) ||
+            incident.victim_group.toLowerCase().includes(searchTerm) ||
+            incident.incident_type.toLowerCase().includes(searchTerm)
+        );
     }
-    
-    // Helper method to get approximate coordinates for Indian states
-    getStateCoordinates(stateName) {
-        if (!stateName) return null;
+
+    // Stats methods
+    getStats() {
+        const total = this.incidents.length;
+        const withCoordinates = this.incidents.filter(i => i.has_coordinates).length;
         
-        const stateMap = {
-            'delhi': { lat: 28.7041, lon: 77.1025 },
-            'maharashtra': { lat: 19.7515, lon: 75.7139 },
-            'karnataka': { lat: 15.3173, lon: 75.7139 },
-            'tamil nadu': { lat: 11.1271, lon: 78.6569 },
-            'west bengal': { lat: 22.9868, lon: 87.8550 },
-            'gujarat': { lat: 22.2587, lon: 71.1924 },
-            'rajasthan': { lat: 27.0238, lon: 74.2179 },
-            'uttar pradesh': { lat: 26.8467, lon: 80.9462 },
-            'madhya pradesh': { lat: 22.9734, lon: 78.6569 },
-            'bihar': { lat: 25.0961, lon: 85.3131 },
-            'andhra pradesh': { lat: 15.9129, lon: 79.7400 },
-            'telangana': { lat: 18.1124, lon: 79.0193 },
-            'odisha': { lat: 20.9517, lon: 85.0985 },
-            'kerala': { lat: 10.8505, lon: 76.2711 },
-            'jharkhand': { lat: 23.6102, lon: 85.2799 },
-            'assam': { lat: 26.2006, lon: 92.9376 },
-            'punjab': { lat: 31.1471, lon: 75.3412 },
-            'chhattisgarh': { lat: 21.2787, lon: 81.8661 },
-            'haryana': { lat: 29.0588, lon: 76.0856 },
-            'uttarakhand': { lat: 30.0668, lon: 79.0193 },
-            'jammu and kashmir': { lat: 33.7782, lon: 76.5762 },
-            'himachal pradesh': { lat: 31.1048, lon: 77.1734 },
-            'goa': { lat: 15.2993, lon: 74.1240 },
-            'tripura': { lat: 23.9408, lon: 91.9882 },
-            'meghalaya': { lat: 25.4670, lon: 91.3662 },
-            'manipur': { lat: 24.6637, lon: 93.9063 },
-            'nagaland': { lat: 26.1584, lon: 94.5624 },
-            'arunachal pradesh': { lat: 28.2180, lon: 94.7278 },
-            'sikkim': { lat: 27.5330, lon: 88.5122 },
-            'mizoram': { lat: 23.1645, lon: 92.9376 }
+        const byState = {};
+        const byVictimGroup = {};
+        const byIncidentType = {};
+        const byYear = {};
+        
+        this.incidents.forEach(incident => {
+            // By state
+            const state = incident.state || 'Unknown';
+            byState[state] = (byState[state] || 0) + 1;
+            
+            // By victim group
+            const group = incident.victim_group || 'Unknown';
+            byVictimGroup[group] = (byVictimGroup[group] || 0) + 1;
+            
+            // By incident type
+            const type = incident.incident_type || 'Unknown';
+            byIncidentType[type] = (byIncidentType[type] || 0) + 1;
+            
+            // By year
+            const year = incident.year;
+            byYear[year] = (byYear[year] || 0) + 1;
+        });
+        
+        return {
+            total,
+            withCoordinates,
+            byState,
+            byVictimGroup,
+            byIncidentType,
+            byYear
         };
-        
-        // Normalize state name for lookup
-        const normalizedStateName = stateName.toLowerCase().trim();
-        
-        // Exact match
-        if (stateMap[normalizedStateName]) {
-            return stateMap[normalizedStateName];
-        }
-        
-        // Partial match (in case state name has variations)
-        for (const [key, coords] of Object.entries(stateMap)) {
-            if (normalizedStateName.includes(key) || key.includes(normalizedStateName)) {
-                return coords;
-            }
-        }
-        
-        return null;
     }
 }
 
-// Create and export a singleton instance
+// Create and export singleton instance
 const dataManager = new DataManager();
-
-// Export the instance as default
 export default dataManager; 
