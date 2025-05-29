@@ -3,7 +3,7 @@ import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm';
 
 // Google Sheets published CSV URL (from public_json_data sheet)
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
-const SHEET_PROXY = "https://cors.isomorphic-git.org/";
+const SHEET_PROXY = "https://corsproxy.io/?"; // Changed to a more reliable CORS proxy
 
 // Field mapping from CSV headers to JS properties
 const FIELD_MAP = {
@@ -31,36 +31,51 @@ class DataManager {
         };
         this.loading = false;
         this.error = null;
-        this.useMockData = true; // TODO: Set to false when real data is available
+        this.useMockData = false; // Disabled mock data for production
     }
 
     async fetchData() {
-        if (this.loading) return false;
+        if (this.loading) {
+            console.warn('[fetch] Already loading data, skipping...');
+            return false;
+        }
         
         this.loading = true;
         this.error = null;
         
         try {
+            console.info('[fetch] Starting data fetch...');
+            
             // Show loading state
             document.getElementById('loader')?.classList.remove('hidden');
             document.getElementById('errorBanner')?.classList.add('hidden');
             
             // Try direct fetch first
-            let response = await fetch(SHEET_URL, { mode: 'cors' });
+            console.info('[fetch] Attempting direct fetch from:', SHEET_URL);
+            let response = await fetch(SHEET_URL, { 
+                mode: 'cors',
+                cache: 'no-cache' // Disable caching
+            });
             
             // If CORS fails, use proxy
             if (!response.ok) {
-                console.info('[fetch] Direct fetch failed, trying CORS proxy...');
-                response = await fetch(SHEET_PROXY + SHEET_URL);
+                console.warn('[fetch] Direct fetch failed:', response.status, response.statusText);
+                console.info('[fetch] Trying CORS proxy...');
+                const proxyUrl = SHEET_PROXY + encodeURIComponent(SHEET_URL);
+                console.info('[fetch] Proxy URL:', proxyUrl);
+                response = await fetch(proxyUrl, { cache: 'no-cache' });
             }
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
             }
             
-            console.info('[fetch]', response.status, response.headers.get('content-type'));
+            console.info('[fetch] Response status:', response.status);
+            console.info('[fetch] Content type:', response.headers.get('content-type'));
             
             const csvText = await response.text();
+            console.info('[fetch] Received CSV data length:', csvText.length);
+            
             const { data, errors } = Papa.parse(csvText, {
                 header: true,
                 skipEmptyLines: true,
@@ -70,6 +85,8 @@ class DataManager {
             if (errors.length) {
                 console.warn('[parse] CSV parsing errors:', errors);
             }
+            
+            console.info('[parse] Parsed rows:', data.length);
             
             // Map fields and clean data
             this.incidents = data.map(row => {
@@ -96,21 +113,24 @@ class DataManager {
                 return incident;
             }).filter(incident => incident.victim_group); // Only keep incidents with victim group
             
+            console.info('[parse] Valid incidents after filtering:', this.incidents.length);
             console.assert(this.incidents.length > 0, 'No valid incidents parsed from CSV');
             
             this.lastUpdated = new Date();
             this.updateStats();
             
+            console.info('[fetch] Data fetch completed successfully');
             return true;
             
         } catch (error) {
-            console.error('Error fetching data:', error);
+            console.error('[fetch] Error fetching data:', error);
             this.error = error.message;
             document.getElementById('errorBanner')?.classList.remove('hidden');
             return false;
         } finally {
             this.loading = false;
             document.getElementById('loader')?.classList.add('hidden');
+            console.info('[fetch] Loading state cleared');
         }
     }
 
