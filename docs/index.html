@@ -1,11 +1,11 @@
-<!-- Redeploy trigger: 2024-06-07-PROFESSIONAL -->
+<!-- Redeploy trigger: 2024-06-07-2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>India Violence Tracker | Real-time Dashboard</title>
-    <meta name="description" content="Professional monitoring and analysis of violence against Dalit, Bahujan, Adivasi, and minority communities in India">
+    <meta name="description" content="Real-time tracking and visualization of violence against Dalit, Bahujan, Adivasi, and minority communities in India">
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
@@ -21,41 +21,28 @@
     <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script">
     <link rel="preload" href="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js" as="script">
 </head>
-<body>
+<body class="bg-gray-50 min-h-screen">
     <!-- Loading Spinner -->
-    <div id="loader" class="loading-screen hidden">
-        <div class="loading-spinner"></div>
-        <p class="loading-text">Loading incident data...</p>
+    <div id="loader" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div>
     </div>
 
     <!-- Error Banner -->
-    <div id="errorBanner" class="error-banner hidden">
-        <p>Error loading data. Please try refreshing the page.</p>
+    <div id="errorBanner" class="fixed top-0 left-0 right-0 bg-red-600 text-white px-4 py-2 text-center z-50 hidden">
+        <p class="font-medium">Error loading data. Please try refreshing the page.</p>
     </div>
 
     <!-- Header -->
-    <header class="site-header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo-section">
-                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="16" cy="16" r="16" fill="url(#gradient)"/>
-                        <path d="M12 10h8v2h-8zm0 4h8v2h-8zm0 4h6v2h-6z" fill="white"/>
-                        <defs>
-                            <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#6366f1"/>
-                                <stop offset="1" stop-color="#818cf8"/>
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                    <h1 class="site-title">India Violence Tracker</h1>
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <img src="assets/logo.svg" alt="Logo" class="h-8 w-8">
+                    <h1 class="text-xl font-bold text-gray-900">India Violence Tracker</h1>
                 </div>
-                <div class="header-actions">
-                    <span id="last-updated" class="last-updated">Loading...</span>
-                    <button id="refresh-btn" class="btn btn-primary">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 3a5 5 0 104.546 2.914.5.5 0 00-.908-.417A4 4 0 118 4v1.076L10.5 3.5l-.5-.5L8 5l-2-2zm-.5 4v3.5H6l2 2 2-2H8.5V7H7.5z"/>
-                        </svg>
+                <div class="flex items-center space-x-4">
+                    <span id="last-updated" class="text-sm text-gray-500">Loading...</span>
+                    <button id="refresh-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700 transition-colors">
                         Refresh Data
                     </button>
                 </div>
@@ -63,139 +50,153 @@
         </div>
     </header>
 
-    <!-- Stats Section -->
-    <section class="stats-section">
-        <div class="container">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-incidents">--</div>
-                    <div class="stat-label">Total Incidents</div>
+    <!-- Stats Bar -->
+    <section class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-gradient-to-r from-red-500 to-red-600 text-white p-4 rounded-lg">
+                    <div class="text-2xl font-bold" id="total-incidents">--</div>
+                    <div class="text-sm opacity-90">Total Incidents</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="this-week">--</div>
-                    <div class="stat-label">This Week</div>
+                <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4 rounded-lg">
+                    <div class="text-2xl font-bold" id="this-week">--</div>
+                    <div class="text-sm opacity-90">This Week</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="this-month">--</div>
-                    <div class="stat-label">This Month</div>
+                <div class="bg-gradient-to-r from-amber-500 to-amber-600 text-white p-4 rounded-lg">
+                    <div class="text-2xl font-bold" id="this-month">--</div>
+                    <div class="text-sm opacity-90">This Month</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="top-state">--</div>
-                    <div class="stat-label">Most Affected State</div>
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+                    <div class="text-xl font-bold" id="top-state">--</div>
+                    <div class="text-sm opacity-90">Most Affected State</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Filters Section -->
-    <section class="filters-section">
-        <div class="container">
-            <div class="filters-grid">
-                <div class="filter-group">
-                    <label for="date-from" class="filter-label">From Date</label>
-                    <input type="date" id="date-from" class="filter-input">
+    <!-- Filters -->
+    <section class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex flex-wrap gap-4 items-center">
+                <div class="flex items-center space-x-2">
+                    <label for="date-from" class="text-sm font-medium text-gray-700">From:</label>
+                    <input type="date" id="date-from" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
                 </div>
-                <div class="filter-group">
-                    <label for="date-to" class="filter-label">To Date</label>
-                    <input type="date" id="date-to" class="filter-input">
+                <div class="flex items-center space-x-2">
+                    <label for="date-to" class="text-sm font-medium text-gray-700">To:</label>
+                    <input type="date" id="date-to" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
                 </div>
-                <div class="filter-group">
-                    <label for="state-filter" class="filter-label">State</label>
-                    <select id="state-filter" class="filter-select">
+                <div class="flex items-center space-x-2">
+                    <label for="state-filter" class="text-sm font-medium text-gray-700">State:</label>
+                    <select id="state-filter" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
                         <option value="">All States</option>
                     </select>
                 </div>
-                <div class="filter-group">
-                    <label for="victim-group-filter" class="filter-label">Victim Group</label>
-                    <select id="victim-group-filter" class="filter-select">
+                <div class="flex items-center space-x-2">
+                    <label for="victim-group-filter" class="text-sm font-medium text-gray-700">Victim Group:</label>
+                    <select id="victim-group-filter" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
                         <option value="">All Groups</option>
                     </select>
                 </div>
-                <div class="filter-group">
-                    <label for="incident-type-filter" class="filter-label">Incident Type</label>
-                    <select id="incident-type-filter" class="filter-select">
+                <div class="flex items-center space-x-2">
+                    <label for="incident-type-filter" class="text-sm font-medium text-gray-700">Incident Type:</label>
+                    <select id="incident-type-filter" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
                         <option value="">All Types</option>
                     </select>
                 </div>
-                <div class="filter-group">
-                    <button id="clear-filters" class="btn btn-secondary" style="margin-top: 24px;">
-                        Clear Filters
-                    </button>
-                </div>
+                <button id="clear-filters" class="bg-gray-500 text-white px-4 py-1 rounded-md text-sm hover:bg-gray-600 transition-colors">
+                    Clear Filters
+                </button>
+            </div>
+            
+            <!-- Active Filters Display -->
+            <div id="active-filters" class="mt-3 flex flex-wrap gap-2 hidden">
+                <span class="text-sm text-gray-600 mr-2">Active filters:</span>
+                <!-- Dynamic filter chips will be added here -->
             </div>
         </div>
     </section>
 
     <!-- Main Content -->
-    <main class="main-content">
-        <div class="container">
-            <!-- Loading State -->
-            <div id="loading-screen" class="loading-screen">
-                <div class="loading-spinner"></div>
-                <p class="loading-text">Loading incident data...</p>
-            </div>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <!-- Loading State -->
+        <div id="loadingSpinner" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="mt-2 text-gray-600">Loading incident data...</p>
+        </div>
 
-            <!-- Error State -->
-            <div id="error-screen" class="error-screen hidden">
-                <div class="error-icon">⚠️</div>
-                <h2>Failed to Load Data</h2>
-                <p>Unable to fetch incident data. Please try again later.</p>
-                <button id="retry-btn" class="btn btn-primary">Retry</button>
-            </div>
-
-            <!-- Main Dashboard -->
-            <div id="dashboard" class="content-grid hidden">
-                <!-- Map Section -->
-                <section class="card map-section">
-                    <div class="section-header">
-                        <h2 class="section-title">Incident Map</h2>
-                        <p class="section-subtitle">Geographic distribution of reported incidents</p>
+        <!-- Error Banner -->
+        <div id="errorBanner" class="hidden bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Error Loading Data</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        <p id="errorMessage">Failed to load incident data. Please refresh the page.</p>
                     </div>
-                    <div class="map-container">
-                        <div id="map"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="dashboard" class="hidden space-y-6">
+            <!-- Map Section -->
+            <section class="bg-white rounded-lg shadow">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900">Incident Map</h2>
+                    <p class="text-sm text-gray-600">Geographic distribution of reported incidents</p>
+                </div>
+                <div class="p-4">
+                    <div id="map" class="h-96 rounded-lg border border-gray-300"></div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <section class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-900">Incidents by Type</h2>
+                    </div>
+                    <div class="p-4">
+                        <canvas id="incidentTypeChart" class="max-h-64"></canvas>
                     </div>
                 </section>
 
-                <!-- Charts Section -->
-                <div class="charts-grid">
-                    <section class="card">
-                        <div class="section-header">
-                            <h3 class="section-title">Incidents by Type</h3>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="incidentTypeChart"></canvas>
-                        </div>
-                    </section>
+                <section class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-900">Affected Communities</h2>
+                    </div>
+                    <div class="p-4">
+                        <canvas id="victimGroupChart" class="max-h-64"></canvas>
+                    </div>
+                </section>
 
-                    <section class="card">
-                        <div class="section-header">
-                            <h3 class="section-title">Affected Communities</h3>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="victimGroupChart"></canvas>
-                        </div>
-                    </section>
+                <section class="bg-white rounded-lg shadow">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-900">State Distribution</h2>
+                    </div>
+                    <div class="p-4">
+                        <canvas id="stateChart" class="max-h-64"></canvas>
+                    </div>
+                </section>
+            </div>
 
-                    <section class="card">
-                        <div class="section-header">
-                            <h3 class="section-title">State Distribution</h3>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="stateChart"></canvas>
-                        </div>
-                    </section>
-                </div>
-
-                <!-- Data Table Section -->
-                <section class="card table-section">
-                    <div class="table-header">
+            <!-- Data Table Section -->
+            <section class="bg-white rounded-lg shadow">
+                <div class="p-4 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
                         <div>
-                            <h2 class="section-title">Recent Incidents</h2>
-                            <p class="section-subtitle">Detailed view of reported incidents</p>
+                            <h2 class="text-lg font-semibold text-gray-900">Recent Incidents</h2>
+                            <p class="text-sm text-gray-600">Detailed view of reported incidents</p>
                         </div>
-                        <div class="table-controls">
-                            <input type="text" id="search-input" placeholder="Search incidents..." class="search-input">
-                            <select id="sort-select" class="filter-select">
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="search-input" placeholder="Search incidents..." 
+                                   class="border border-gray-300 rounded-md px-3 py-2 text-sm w-64">
+                            <select id="sort-select" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
                                 <option value="incident_date">Sort by Date</option>
                                 <option value="state">Sort by State</option>
                                 <option value="incident_type">Sort by Type</option>
@@ -204,93 +205,87 @@
                             </select>
                         </div>
                     </div>
-                    <div style="overflow-x: auto;">
-                        <table class="data-table" id="incidents-table">
-                            <thead>
+                </div>
+                <div class="overflow-x-auto">
+                    <div id="incidents-table" class="min-w-full">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Date</th>
-                                    <th>Title</th>
-                                    <th>Location</th>
-                                    <th>Type</th>
-                                    <th>Source</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                                 </tr>
                             </thead>
-                            <tbody id="incidentsTableBody">
+                            <tbody id="incidents-table-body" class="bg-white divide-y divide-gray-200">
                                 <!-- Table rows will be populated by JavaScript -->
                             </tbody>
                         </table>
                     </div>
-                    <div class="table-footer">
-                        <div>
-                            <span style="font-size: var(--text-sm); color: var(--color-text-muted);">
-                                Showing <span id="showing-count">0</span> of <span id="total-count">0</span> incidents
-                            </span>
-                        </div>
-                        <div style="display: flex; gap: var(--space-sm); align-items: center;">
-                            <button id="fix-coordinates-btn" class="btn btn-secondary">Fix Coordinates</button>
-                            <button id="prev-page" class="btn btn-secondary">Previous</button>
-                            <span id="page-info" style="font-size: var(--text-sm); color: var(--color-text-muted);">Page 1</span>
-                            <button id="next-page" class="btn btn-secondary">Next</button>
-                        </div>
+                </div>
+                <div class="p-4 border-t border-gray-200 flex justify-between items-center">
+                    <div class="text-sm text-gray-600">
+                        Showing <span id="showing-count">0</span> of <span id="total-count">0</span> incidents
                     </div>
-                    <div id="paginationControls"></div>
-                </section>
-            </div>
+                    <div class="flex space-x-2">
+                        <button id="fix-coordinates-btn" class="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700">
+                            Fix Map Coordinates
+                        </button>
+                        <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50">
+                            Previous
+                        </button>
+                        <span id="page-info" class="px-3 py-1 text-sm text-gray-600">Page 1</span>
+                        <button id="next-page" class="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50">
+                            Next
+                        </button>
+                    </div>
+                </div>
+                <div id="paginationControls"></div>
+            </section>
         </div>
     </main>
 
     <!-- Footer -->
-    <footer class="site-footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-section">
-                    <h3>About This Project</h3>
-                    <p>
-                        Professional monitoring and analysis of violence and discrimination against Dalit, Bahujan, Adivasi, 
-                        and minority communities in India. Data sourced from verified news reports and official sources.
+    <footer class="bg-gray-800 text-white mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">About This Project</h3>
+                    <p class="text-gray-300 text-sm">
+                        Real-time tracking of violence and discrimination against Dalit, Bahujan, Adivasi, 
+                        and minority communities in India. Data sourced from verified news reports.
                     </p>
                 </div>
-                <div class="footer-section">
-                    <h3>Data Sources</h3>
-                    <ul>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Data Sources</h3>
+                    <ul class="text-gray-300 text-sm space-y-1">
                         <li>• Major Indian news outlets</li>
                         <li>• RSS feeds and APIs</li>
                         <li>• Manual verification process</li>
                         <li>• Community reports</li>
                     </ul>
                 </div>
-                <div class="footer-section">
-                    <h3>Important Note</h3>
-                    <p>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Important Note</h3>
+                    <p class="text-gray-300 text-sm">
                         This data represents reported incidents only. Many cases go unreported. 
-                        This tracker aims to raise awareness and promote justice through data transparency.
+                        This tracker aims to raise awareness and promote justice.
                     </p>
                 </div>
             </div>
-            <div class="footer-bottom">
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
                 <p>&copy; 2025 India Violence Tracker. Open source project for social justice.</p>
-                <p>Last updated: <span id="footer-last-updated">--</span></p>
+                <p class="mt-2">Last updated: <span id="footer-last-updated">--</span></p>
             </div>
         </div>
     </footer>
 
     <!-- Scripts -->
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-    <script src="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js"></script>
-    
-    <!-- Debug script - helps diagnose map issues -->
-    <script src="js/debug.js?v=3"></script>
-    
-    <!-- App modules -->
-    <script type="module" src="js/data.js?v=3"></script>
-    <script type="module" src="js/map.js?v=3"></script>
-    <script type="module" src="js/charts.js?v=3"></script>
-    <script type="module" src="js/table.js?v=3"></script>
-    <script type="module" src="js/app.js?v=3"></script>
-    
-    <!-- Debug adapter - makes modules available for debugging -->
-    <script type="module" src="js/debug-adapter.js?v=3"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="./js/app.js?v=3"></script>
 </body>
 </html>
