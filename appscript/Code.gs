@@ -752,7 +752,7 @@ function fetchAndProcessData() {
     let incidentsSheet = ss.getSheetByName(CONFIG.SHEETS.INCIDENTS);
     let publicSheet = ss.getSheetByName(CONFIG.SHEETS.PUBLIC);
 
-
+    // Ensure all required sheets exist
     if (!feedsSheet || !incidentsSheet || !publicSheet) { 
       logSystemEvent('Core sheets not found. Running initialization.', 'WARNING');
       if (!initializeSheets()) { 
@@ -768,6 +768,7 @@ function fetchAndProcessData() {
       }
     }
     
+    // Get active feeds for processing
     const activeFeeds = getActiveFeeds(feedsSheet);
     if (activeFeeds.length === 0) {
       logSystemEvent('No active feeds found to process.', 'INFO');
@@ -780,8 +781,9 @@ function fetchAndProcessData() {
         logSystemEvent('Completed a full cycle of feeds. Starting new cycle.', 'INFO');
     }
 
+    // Get the next feed to process
     const feedToProcess = activeFeeds[lastProcessedFeedIndex];
-    logSystemEvent(`Processing feed #${lastProcessedFeedIndex + 1}/${activeFeeds.length}: ${feedToProcess.name}`, 'INFO');
+    logSystemEvent(`Processing feed #${lastProcessedFeedIndex + 1}/${activeFeeds.length}: ${feedToProcess.name} (${feedToProcess.url})`, 'INFO');
 
     let feedProcessedSuccessfully = false; 
     let errorDetailForStatus = '';
@@ -789,25 +791,33 @@ function fetchAndProcessData() {
     let articlesProcessedInThisRun = 0;
 
     try {
+      // Fetch the RSS feed items
+      logSystemEvent(`Fetching RSS feed from ${feedToProcess.url}`, 'INFO');
       const allFeedItems = fetchRSSFeed(feedToProcess.url); 
       
       if (allFeedItems && allFeedItems.length > 0) {
+        logSystemEvent(`Successfully fetched ${allFeedItems.length} items from feed: ${feedToProcess.name}`, 'INFO');
+        
+        // Determine which articles to process
         const articlesToConsider = allFeedItems.slice(currentFeedNextArticleIndex); 
         const articlesForThisBatch = articlesToConsider.slice(0, CONFIG.MAX_ARTICLES_PER_FEED_BATCH);
 
         logSystemEvent(`Fetched ${allFeedItems.length} total items from ${feedToProcess.name}. Starting from index ${currentFeedNextArticleIndex}. Processing up to ${articlesForThisBatch.length} in this batch.`, 'INFO');
         
-        const newIncidentsFromThisFeedBatch = processFeedItems(articlesForThisBatch, feedToProcess, incidentsSheet, publicSheet); 
+        // Process the articles
+        const newIncidentsFromThisFeedBatch = processFeedItems(articlesForThisBatch, feedToProcess, incidentsSheet, publicSheet);
         
         articlesProcessedInThisRun = articlesForThisBatch.length;
         currentFeedNextArticleIndex += articlesProcessedInThisRun;
 
         if (newIncidentsFromThisFeedBatch.length > 0) {
              logSystemEvent(`Added ${newIncidentsFromThisFeedBatch.length} new incidents from feed: ${feedToProcess.name}.`, 'INFO');
+        } else {
+             logSystemEvent(`No new incidents added from feed: ${feedToProcess.name}. ${articlesForThisBatch.length} articles processed but none matched criteria or were duplicates.`, 'INFO');
         }
       } else {
-          logSystemEvent(`No items fetched or returned from feed: ${feedToProcess.name}`, 'WARNING');
-          currentFeedNextArticleIndex = 0; 
+          logSystemEvent(`No items fetched or returned from feed: ${feedToProcess.name}. This could indicate an issue with the feed URL or format.`, 'WARNING');
+          currentFeedNextArticleIndex = 0; // Reset the index when feed is empty
       }
       feedProcessedSuccessfully = true;
     } catch (error) {
@@ -816,15 +826,24 @@ function fetchAndProcessData() {
     }
 
     let nextArticleIndexForSheet;
-    const totalItemsInCurrentFeed = (fetchRSSFeed(feedToProcess.url) || []).length; // Re-fetch to get current total count
-    if (feedProcessedSuccessfully && currentFeedNextArticleIndex >= totalItemsInCurrentFeed && totalItemsInCurrentFeed > 0) {
-        nextArticleIndexForSheet = 0; 
-        logSystemEvent(`All articles processed for feed: ${feedToProcess.name}. Resetting its next article index to 0.`, 'INFO');
-    } else if (feedProcessedSuccessfully) {
+    
+    // Avoid re-fetching the feed unnecessarily
+    if (feedProcessedSuccessfully) {
+      if (articlesProcessedInThisRun > 0) {
+        // Save current feed processing state
         nextArticleIndexForSheet = currentFeedNextArticleIndex;
+        logSystemEvent(`Feed ${feedToProcess.name} processed successfully. Next article index set to ${nextArticleIndexForSheet}`, 'INFO');
+      } else {
+        // If we had no articles to process, reset to 0 to start from beginning next time
+        nextArticleIndexForSheet = 0;
+        logSystemEvent(`No articles to process for feed: ${feedToProcess.name}. Resetting its next article index to 0.`, 'INFO');
+      }
     } else {
-        nextArticleIndexForSheet = feedToProcess.nextArticleIndex; // Keep old index on error, to retry same batch.
+      // On error, keep the old index to retry the same batch
+      nextArticleIndexForSheet = feedToProcess.nextArticleIndex;
+      logSystemEvent(`Feed ${feedToProcess.name} processing failed. Keeping next article index at ${nextArticleIndexForSheet} for retry.`, 'INFO');
     }
+    
     updateFeedStatus(feedsSheet, feedToProcess.rowIndexInSheet, feedProcessedSuccessfully, errorDetailForStatus, nextArticleIndexForSheet);
     
     scriptProperties.setProperty('lastProcessedFeedIndex', String(lastProcessedFeedIndex + 1)); 
@@ -1187,10 +1206,12 @@ function fetchRSSFeed(url) {
     const contentText = response.getContentText();
 
     if (responseCode !== 200) {
-      throw new Error(`HTTP Error ${responseCode} for URL ${url}. Response: ${contentText ? contentText.substring(0, 200) : 'No content'}`);
+      logSystemEvent(`HTTP Error ${responseCode} for URL ${url}. Response: ${contentText ? contentText.substring(0, 200) : 'No content'}`, 'ERROR', 'fetchRSSFeed');
+      return [];
     }
     if (!contentText) {
-        throw new Error(`Empty response for URL ${url}`);
+      logSystemEvent(`Empty response for URL ${url}`, 'ERROR', 'fetchRSSFeed');
+      return [];
     }
 
     logSystemEvent(`Successfully fetched content from ${url}, parsing XML...`, 'INFO', 'fetchRSSFeed');
@@ -1199,64 +1220,291 @@ function fetchRSSFeed(url) {
     try {
       const xml = XmlService.parse(contentText);
       const root = xml.getRootElement();
-      let itemsXml;
+      let items = [];
       
-      // Handle RSS format
-      const channel = root.getChild('channel');
-      if (channel && channel.getChildren('item').length > 0) {
-          itemsXml = channel.getChildren('item');
+      // First check if this is an RSS feed
+      try {
+        // Handle standard RSS format
+        const channel = root.getChild('channel');
+        if (channel && channel.getChildren('item').length > 0) {
+          const itemsXml = channel.getChildren('item');
           
-          const items = itemsXml.map(item => {
-              let description = item.getChild('description')?.getValue() || item.getChild('summary')?.getValue() || '';
+          items = itemsXml.map(item => {
+            try {
+              let description = '';
+              try {
+                description = item.getChild('description') ? item.getChild('description').getValue() : '';
+              } catch (e) {
+                description = '';
+                logSystemEvent(`Error getting description for an item in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+              }
+              
+              if (!description) {
+                try {
+                  description = item.getChild('summary') ? item.getChild('summary').getValue() : '';
+                } catch (e) {
+                  description = '';
+                }
+              }
+              
               description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+              
+              let title = '';
+              try {
+                title = item.getChild('title') ? item.getChild('title').getValue() : '';
+              } catch (e) {
+                title = '';
+                logSystemEvent(`Error getting title for an item in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+              }
+              
+              let link = '';
+              try {
+                link = item.getChild('link') ? item.getChild('link').getValue() : '';
+              } catch (e) {
+                link = '';
+                logSystemEvent(`Error getting link for an item in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+              }
+              
+              let pubDate = '';
+              try {
+                pubDate = item.getChild('pubDate') ? item.getChild('pubDate').getValue() : '';
+                if (!pubDate) {
+                  const dcNamespace = XmlService.getNamespace('dc', 'http://purl.org/dc/elements/1.1/');
+                  if (item.getChild('date', dcNamespace)) {
+                    pubDate = item.getChild('date', dcNamespace).getValue();
+                  }
+                }
+              } catch (e) {
+                pubDate = '';
+                logSystemEvent(`Error getting pubDate for an item in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+              }
+              
+              let guid = '';
+              try {
+                guid = item.getChild('guid') ? item.getChild('guid').getValue() : '';
+                if (!guid && link) {
+                  guid = link;
+                }
+              } catch (e) {
+                guid = link || '';
+                logSystemEvent(`Error getting guid for an item in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+              }
 
               return {
-                  title: item.getChild('title')?.getValue() || '',
-                  description: description.substring(0, 1000), 
-                  link: item.getChild('link')?.getValue() || '',
-                  pubDate: item.getChild('pubDate')?.getValue() || item.getChild('dc:date', XmlService.getNamespace('dc'))?.getValue() || '', 
-                  guid: item.getChild('guid')?.getValue() || item.getChild('link')?.getValue() || '' 
+                title: title,
+                description: description.substring(0, 1000), 
+                link: link,
+                pubDate: pubDate,
+                guid: guid
               };
-          });
+            } catch (itemError) {
+              logSystemEvent(`Error processing an item in RSS feed ${url}: ${itemError.message}`, 'WARNING', 'fetchRSSFeed');
+              return null; // Return null for items that fail to process
+            }
+          }).filter(item => item !== null); // Filter out null items
           
           logSystemEvent(`Successfully parsed RSS feed from ${url}. Found ${items.length} items.`, 'INFO', 'fetchRSSFeed');
           return items;
-      } 
-      // Handle Atom format
-      else if (root.getName().toLowerCase() === 'feed' && root.getChildren('entry', root.getNamespace()).length > 0) { 
-          itemsXml = root.getChildren('entry', root.getNamespace());
-          const items = itemsXml.map(item => {
-              let description = item.getChild('summary', root.getNamespace())?.getText() || item.getChild('content', root.getNamespace())?.getText() || '';
-              description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
-              let link = '';
-              const linkElement = item.getChild('link', root.getNamespace());
-              if (linkElement) {
-                  if (linkElement.getAttribute('href')) { 
-                      link = linkElement.getAttribute('href').getValue();
-                  } else {
-                      link = linkElement.getText(); 
-                  }
-              }
-              
-              return {
-                  title: item.getChild('title', root.getNamespace())?.getText() || '',
-                  description: description.substring(0, 1000), 
-                  link: link,
-                  pubDate: item.getChild('published', root.getNamespace())?.getText() || item.getChild('updated', root.getNamespace())?.getText() || '',
-                  guid: item.getChild('id', root.getNamespace())?.getText() || link 
-              };
-          });
-          
-          logSystemEvent(`Successfully parsed Atom feed from ${url}. Found ${items.length} items.`, 'INFO', 'fetchRSSFeed');
-          return items;
-      } else {
-          logSystemEvent(`Could not find 'item' or 'entry' elements in RSS/Atom feed from ${url}`, 'WARNING', 'fetchRSSFeed');
-          return [];
+        }
+      } catch (rssError) {
+        logSystemEvent(`Error processing RSS format for ${url}: ${rssError.message}. Will try Atom format.`, 'INFO', 'fetchRSSFeed');
       }
+      
+      // If we get here, try Atom format
+      try {
+        if (root.getName().toLowerCase() === 'feed') {
+          const atomNamespace = root.getNamespace();
+          const itemsXml = root.getChildren('entry', atomNamespace);
+          
+          if (itemsXml && itemsXml.length > 0) {
+            items = itemsXml.map(item => {
+              try {
+                let description = '';
+                try {
+                  description = item.getChild('summary', atomNamespace) ? item.getChild('summary', atomNamespace).getText() : '';
+                  if (!description) {
+                    description = item.getChild('content', atomNamespace) ? item.getChild('content', atomNamespace).getText() : '';
+                  }
+                } catch (e) {
+                  description = '';
+                  logSystemEvent(`Error getting description for an Atom entry in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+                }
+                
+                description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+                
+                let title = '';
+                try {
+                  title = item.getChild('title', atomNamespace) ? item.getChild('title', atomNamespace).getText() : '';
+                } catch (e) {
+                  title = '';
+                  logSystemEvent(`Error getting title for an Atom entry in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+                }
+                
+                let link = '';
+                try {
+                  const linkElement = item.getChild('link', atomNamespace);
+                  if (linkElement) {
+                    const hrefAttr = linkElement.getAttribute('href');
+                    if (hrefAttr) {
+                      link = hrefAttr.getValue();
+                    } else {
+                      link = linkElement.getText();
+                    }
+                  }
+                } catch (e) {
+                  link = '';
+                  logSystemEvent(`Error getting link for an Atom entry in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+                }
+                
+                let pubDate = '';
+                try {
+                  pubDate = item.getChild('published', atomNamespace) ? item.getChild('published', atomNamespace).getText() : '';
+                  if (!pubDate) {
+                    pubDate = item.getChild('updated', atomNamespace) ? item.getChild('updated', atomNamespace).getText() : '';
+                  }
+                } catch (e) {
+                  pubDate = '';
+                  logSystemEvent(`Error getting pubDate for an Atom entry in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+                }
+                
+                let guid = '';
+                try {
+                  guid = item.getChild('id', atomNamespace) ? item.getChild('id', atomNamespace).getText() : '';
+                  if (!guid && link) {
+                    guid = link;
+                  }
+                } catch (e) {
+                  guid = link || '';
+                  logSystemEvent(`Error getting guid for an Atom entry in feed ${url}: ${e.message}`, 'WARNING', 'fetchRSSFeed');
+                }
+                
+                return {
+                  title: title,
+                  description: description.substring(0, 1000),
+                  link: link,
+                  pubDate: pubDate,
+                  guid: guid
+                };
+              } catch (itemError) {
+                logSystemEvent(`Error processing an Atom entry in feed ${url}: ${itemError.message}`, 'WARNING', 'fetchRSSFeed');
+                return null; // Return null for items that fail to process
+              }
+            }).filter(item => item !== null); // Filter out null items
+            
+            logSystemEvent(`Successfully parsed Atom feed from ${url}. Found ${items.length} items.`, 'INFO', 'fetchRSSFeed');
+            return items;
+          }
+        }
+      } catch (atomError) {
+        logSystemEvent(`Error processing Atom format for ${url}: ${atomError.message}`, 'WARNING', 'fetchRSSFeed');
+      }
+      
+      // If we get here, we couldn't parse as RSS or Atom
+      if (items.length === 0) {
+        logSystemEvent(`Could not find valid 'item' or 'entry' elements in feed from ${url}. Root element is '${root.getName()}'`, 'WARNING', 'fetchRSSFeed');
+        return [];
+      }
+      
+      return items;
     } catch (xmlError) {
-      // If XML parsing fails, log the error and return empty array
+      // If XML parsing fails completely, log the error and return empty array
       logSystemEvent(`Failed to parse XML from ${url}: ${xmlError.message}. Content starts with: ${contentText.substring(0, 200)}`, 'ERROR', 'fetchRSSFeed');
+      
+      // Try a fallback method if XML parsing fails
+      try {
+        logSystemEvent(`Trying fallback parsing method for ${url}...`, 'INFO', 'fetchRSSFeed');
+        
+        // Simple regex-based extraction for common RSS patterns
+        const titleRegex = /<title>(.*?)<\/title>/g;
+        const linkRegex = /<link>(.*?)<\/link>/g;
+        const linkHrefRegex = /<link[^>]*href=["'](.*?)["'][^>]*>/g;
+        const descRegex = /<description>(.*?)<\/description>/g;
+        const contentRegex = /<content:encoded>(.*?)<\/content:encoded>/g;
+        const guidRegex = /<guid.*?>(.*?)<\/guid>/g;
+        const pubDateRegex = /<pubDate>(.*?)<\/pubDate>/g;
+        
+        let items = [];
+        let itemMatches = contentText.match(/<item>[\s\S]*?<\/item>/g) || contentText.match(/<entry>[\s\S]*?<\/entry>/g) || [];
+        
+        for (let i = 0; i < itemMatches.length && i < 50; i++) {
+          try {
+            const itemText = itemMatches[i];
+            
+            // Extract title
+            let title = '';
+            const titleMatch = titleRegex.exec(itemText);
+            if (titleMatch && titleMatch[1]) {
+              title = titleMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]*>?/gm, '');
+            }
+            titleRegex.lastIndex = 0; // Reset regex
+            
+            // Extract link
+            let link = '';
+            const linkMatch = linkRegex.exec(itemText);
+            if (linkMatch && linkMatch[1]) {
+              link = linkMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]*>?/gm, '');
+            } else {
+              const linkHrefMatch = linkHrefRegex.exec(itemText);
+              if (linkHrefMatch && linkHrefMatch[1]) {
+                link = linkHrefMatch[1];
+              }
+            }
+            linkRegex.lastIndex = 0;
+            linkHrefRegex.lastIndex = 0;
+            
+            // Extract description/content
+            let description = '';
+            const descMatch = descRegex.exec(itemText);
+            if (descMatch && descMatch[1]) {
+              description = descMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]*>?/gm, '');
+            } else {
+              const contentMatch = contentRegex.exec(itemText);
+              if (contentMatch && contentMatch[1]) {
+                description = contentMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]*>?/gm, '');
+              }
+            }
+            descRegex.lastIndex = 0;
+            contentRegex.lastIndex = 0;
+            
+            // Extract guid
+            let guid = link; // Default to link
+            const guidMatch = guidRegex.exec(itemText);
+            if (guidMatch && guidMatch[1]) {
+              guid = guidMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]*>?/gm, '');
+            }
+            guidRegex.lastIndex = 0;
+            
+            // Extract pubDate
+            let pubDate = '';
+            const pubDateMatch = pubDateRegex.exec(itemText);
+            if (pubDateMatch && pubDateMatch[1]) {
+              pubDate = pubDateMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]*>?/gm, '');
+            }
+            pubDateRegex.lastIndex = 0;
+            
+            if (title && link) {
+              items.push({
+                title: title,
+                description: description.substring(0, 1000).replace(/\s+/g, ' ').trim(),
+                link: link,
+                pubDate: pubDate,
+                guid: guid
+              });
+            }
+          } catch (itemError) {
+            logSystemEvent(`Error in fallback parsing for an item in ${url}: ${itemError.message}`, 'WARNING', 'fetchRSSFeed');
+            continue;
+          }
+        }
+        
+        if (items.length > 0) {
+          logSystemEvent(`Successfully parsed feed using fallback method from ${url}. Found ${items.length} items.`, 'INFO', 'fetchRSSFeed');
+          return items;
+        }
+      } catch (fallbackError) {
+        logSystemEvent(`Fallback parsing also failed for ${url}: ${fallbackError.message}`, 'ERROR', 'fetchRSSFeed');
+      }
+      
       return [];
     }
   } catch (error) {
