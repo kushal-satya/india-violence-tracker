@@ -1,5 +1,5 @@
 // Main application module
-import dataManager from './data.js';
+import dataManager from './data.js?v=2';
 import mapManager from './map.js';
 import chartsManager from './charts.js';
 import tableManager from './table.js';
