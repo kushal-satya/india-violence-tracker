@@ -1,8 +1,25 @@
 // Data manager module
-// Google Sheets published JSON URL (from public_json_data sheet)
-const DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
-// TODO: Update with actual published JSON URL from public_json_data sheet
-# https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv
+import Papa from 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm';
+
+// Google Sheets published CSV URL (from public_json_data sheet)
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYLP4l0USAayIafvxTcDTzgVyktdJOOVnqJIbC4zW8zANSGsJr71QLpxHEW9MIeBQ8qm8qL-zUdRvW/pub?gid=1466869679&single=true&output=csv";
+const SHEET_PROXY = "https://cors.isomorphic-git.org/";
+
+// Field mapping from CSV headers to JS properties
+const FIELD_MAP = {
+    'headline': 'title',
+    'location': 'location_summary',
+    'date_of_incident': 'incident_date',
+    'incident_type': 'incident_type',
+    'victim_group': 'victim_group',
+    'state': 'state',
+    'district': 'district',
+    'latitude': 'lat',
+    'longitude': 'lon',
+    'source_url': 'source_url',
+    'source_name': 'source_name'
+};
+
 class DataManager {
     constructor() {
         this.incidents = [];
@@ -14,7 +31,7 @@ class DataManager {
         };
         this.loading = false;
         this.error = null;
-        this.useMockData = false; // TODO: Set to false when real data is available
+        this.useMockData = true; // TODO: Set to false when real data is available
     }
 
     async fetchData() {
@@ -24,38 +41,76 @@ class DataManager {
         this.error = null;
         
         try {
-            let data;
+            // Show loading state
+            document.getElementById('loader')?.classList.remove('hidden');
+            document.getElementById('errorBanner')?.classList.add('hidden');
             
-            if (this.useMockData) {
-                // Use mock data for development
-                data = this.getMockData();
-            } else {
-                // Fetch from Google Sheets JSON
-                const response = await fetch(DATA_URL);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            // Try direct fetch first
+            let response = await fetch(SHEET_URL, { mode: 'cors' });
+            
+            // If CORS fails, use proxy
+            if (!response.ok) {
+                console.info('[fetch] Direct fetch failed, trying CORS proxy...');
+                response = await fetch(SHEET_PROXY + SHEET_URL);
+            }
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            console.info('[fetch]', response.status, response.headers.get('content-type'));
+            
+            const csvText = await response.text();
+            const { data, errors } = Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: header => header.trim().toLowerCase()
+            });
+            
+            if (errors.length) {
+                console.warn('[parse] CSV parsing errors:', errors);
+            }
+            
+            // Map fields and clean data
+            this.incidents = data.map(row => {
+                const incident = {};
+                Object.entries(FIELD_MAP).forEach(([oldKey, newKey]) => {
+                    if (row[oldKey] !== undefined) {
+                        incident[newKey] = row[oldKey].trim();
+                    }
+                });
+                
+                // Convert lat/lon to numbers, skip if invalid
+                if (incident.lat && incident.lon) {
+                    const lat = parseFloat(incident.lat);
+                    const lon = parseFloat(incident.lon);
+                    if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+                        incident.lat = lat;
+                        incident.lon = lon;
+                    } else {
+                        delete incident.lat;
+                        delete incident.lon;
+                    }
                 }
                 
-                const text = await response.text();
-                // The Google Sheets JSON is stored as text in the first cell
-                data = JSON.parse(text);
-            }
+                return incident;
+            }).filter(incident => incident.victim_group); // Only keep incidents with victim group
             
-            this.incidents = data.data || data;
-            this.lastUpdated = data.lastUpdated || new Date().toISOString();
+            console.assert(this.incidents.length > 0, 'No valid incidents parsed from CSV');
             
-            if (this.incidents.length === 0) {
-                throw new Error('No valid incidents found in data');
-            }
-            
+            this.lastUpdated = new Date();
             this.updateStats();
+            
             return true;
+            
         } catch (error) {
             console.error('Error fetching data:', error);
             this.error = error.message;
+            document.getElementById('errorBanner')?.classList.remove('hidden');
             return false;
         } finally {
             this.loading = false;
+            document.getElementById('loader')?.classList.add('hidden');
         }
     }
 

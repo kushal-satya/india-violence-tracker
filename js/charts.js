@@ -51,6 +51,7 @@ class ChartsManager {
             this.initialized = true;
         } catch (error) {
             console.error('Error initializing charts:', error);
+            document.getElementById('errorBanner')?.classList.remove('hidden');
             throw new Error('Failed to initialize charts');
         }
     }
@@ -361,30 +362,33 @@ class ChartsManager {
     }
 
     getStateDistribution(incidents) {
-        return incidents.reduce((acc, incident) => {
+        const stateCounts = {};
+        incidents.forEach(incident => {
             if (incident.state) {
-                acc[incident.state] = (acc[incident.state] || 0) + 1;
+                stateCounts[incident.state] = (stateCounts[incident.state] || 0) + 1;
             }
-            return acc;
-        }, {});
+        });
+        return stateCounts;
     }
 
     getIncidentTypeDistribution(incidents) {
-        return incidents.reduce((acc, incident) => {
+        const typeCounts = {};
+        incidents.forEach(incident => {
             if (incident.incident_type) {
-                acc[incident.incident_type] = (acc[incident.incident_type] || 0) + 1;
+                typeCounts[incident.incident_type] = (typeCounts[incident.incident_type] || 0) + 1;
             }
-            return acc;
-        }, {});
+        });
+        return typeCounts;
     }
 
     getVictimGroupDistribution(incidents) {
-        return incidents.reduce((acc, incident) => {
+        const groupCounts = {};
+        incidents.forEach(incident => {
             if (incident.victim_group) {
-                acc[incident.victim_group] = (acc[incident.victim_group] || 0) + 1;
+                groupCounts[incident.victim_group] = (groupCounts[incident.victim_group] || 0) + 1;
             }
-            return acc;
-        }, {});
+        });
+        return groupCounts;
     }
 
     getVictimGroupColors() {
@@ -524,17 +528,23 @@ class ChartsManager {
         if (!this.initialized) return;
 
         try {
-            this.initializeStateChart(incidents);
-            this.initializeIncidentTypeChart(incidents);
-            this.initializeVictimGroupChart(incidents);
+            Promise.all([
+                this.initializeStateChart(incidents),
+                this.initializeIncidentTypeChart(incidents),
+                this.initializeVictimGroupChart(incidents)
+            ]).catch(error => {
+                console.error('Error updating charts:', error);
+                document.getElementById('errorBanner')?.classList.remove('hidden');
+            });
         } catch (error) {
             console.error('Error updating charts:', error);
+            document.getElementById('errorBanner')?.classList.remove('hidden');
         }
     }
 
-    truncateLabel(label, max = 16) {
+    truncateLabel(label, maxLength = 15) {
         if (!label) return '';
-        return label.length > max ? label.slice(0, max - 1) + '…' : label;
+        return label.length > maxLength ? label.substring(0, maxLength) + '...' : label;
     }
 }
 
