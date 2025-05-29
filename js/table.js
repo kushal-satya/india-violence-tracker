@@ -1,5 +1,5 @@
 // Table manager module
-import dataManager from './data.js';
+import dataManager from './data.js?v=2';
 
 class TableManager {
     constructor() {
