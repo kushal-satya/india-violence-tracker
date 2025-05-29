@@ -293,4 +293,4 @@ class DataManager {
 const dataManager = new DataManager();
 
 // Export the instance as default
-export { dataManager as default }; 
+export default dataManager; 
