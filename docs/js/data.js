@@ -289,6 +289,8 @@ class DataManager {
     }
 }
 
-// Export a singleton instance
+// Create and export a singleton instance
 const dataManager = new DataManager();
-export default dataManager; 
+
+// Export the instance as default
+export { dataManager as default }; 
