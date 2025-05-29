@@ -65,55 +65,50 @@ class TableManager {
             return;
         }
 
+        // Calculate pagination
         const startIndex = (this.currentPage - 1) * this.itemsPerPage;
         const endIndex = startIndex + this.itemsPerPage;
-        const pageIncidents = this.filteredIncidents.slice(startIndex, endIndex);
+        const pageData = this.filteredIncidents.slice(startIndex, endIndex);
 
-        if (pageIncidents.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                        <div class="flex flex-col items-center space-y-2">
-                            <svg class="h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <p class="text-lg font-medium">No incidents found</p>
-                            <p class="text-sm">Try adjusting your search or filter criteria</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
+        // Clear existing rows
+        tableBody.innerHTML = '';
 
-        tableBody.innerHTML = pageIncidents.map((incident, index) => `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id}')">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                    ${startIndex + index + 1}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+        // Render rows
+        pageData.forEach((incident, index) => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-50';
+            
+            const serialNumber = startIndex + index + 1;
+            
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${serialNumber}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     ${this.formatDate(incident.incident_date)}
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                    <div class="max-w-xs truncate" title="${this.escapeHtml(incident.title)}">
-                        ${this.escapeHtml(incident.title)}
+                <td class="px-6 py-4 text-sm text-gray-900">
+                    <div class="max-w-xs">
+                        <div class="font-medium truncate">${this.escapeHtml(incident.headline || 'N/A')}</div>
+                        ${incident.summary ? `<div class="text-gray-500 text-xs mt-1 truncate">${this.escapeHtml(incident.summary.substring(0, 100))}...</div>` : ''}
                     </div>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    <div class="max-w-xs truncate" title="${this.escapeHtml(incident.location_summary)}">
-                        ${this.escapeHtml(incident.location_summary)}
+                <td class="px-6 py-4 text-sm text-gray-900">
+                    <div class="max-w-xs">
+                        <div>${this.escapeHtml(incident.location || 'N/A')}</div>
+                        ${incident.state ? `<div class="text-gray-500 text-xs">${this.escapeHtml(incident.state)}</div>` : ''}
                     </div>
                 </td>
-                <td class="px-6 py-4 text-sm">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${this.getVictimGroupColor(incident.victim_group)}">
-                        ${this.escapeHtml(incident.victim_group)}
+                <td class="px-6 py-4 text-sm text-gray-900">
+                    <span class="inline-flex px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
+                        ${this.escapeHtml(incident.incident_type || 'N/A')}
                     </span>
+                    ${incident.victim_group ? `<div class="text-xs text-gray-500 mt-1">${this.escapeHtml(incident.victim_group)}</div>` : ''}
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    ${this.escapeHtml(incident.incident_type)}
+                <td class="px-6 py-4 text-sm text-gray-900">
+                    ${incident.source_url ? `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" class="text-blue-600 hover:text-blue-800 text-xs truncate max-w-xs block">${this.escapeHtml(incident.source_name || 'View Source')}</a>` : 'N/A'}
                 </td>
-            </tr>
-        `).join('');
+            `;
+            tableBody.appendChild(row);
+        });
     }
 
     renderPagination() {
