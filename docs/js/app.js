@@ -12,6 +12,10 @@ class App {
     }
 
     initializeLoadingStates() {
+        // Show loading spinner
+        document.getElementById('loader')?.classList.remove('hidden');
+        document.getElementById('errorBanner')?.classList.add('hidden');
+
         // Add loading spinners to stats cards
         const statsCards = document.querySelectorAll('#stats > div');
         statsCards.forEach(card => {
@@ -59,6 +63,17 @@ class App {
         if (currentYearElement) {
             currentYearElement.textContent = new Date().getFullYear();
         }
+
+        // Add error banner close button handler
+        const errorBanner = document.getElementById('errorBanner');
+        if (errorBanner) {
+            const closeButton = errorBanner.querySelector('button');
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    errorBanner.classList.add('hidden');
+                });
+            }
+        }
     }
 
     async loadData() {
@@ -77,11 +92,17 @@ class App {
             await Promise.all([
                 this.updateUI(),
                 mapManager.initialize(dataManager.getIncidents()),
-                tableManager.initialize(dataManager.getIncidents())
+                tableManager.initialize(dataManager.getIncidents()),
+                chartsManager.initialize(dataManager.getIncidents())
             ]);
+
+            // Hide loading spinner
+            document.getElementById('loader')?.classList.add('hidden');
+            
         } catch (error) {
             console.error('Error loading data:', error);
             this.showError('An error occurred while loading data.');
+            document.getElementById('loader')?.classList.add('hidden');
         }
     }
 
@@ -93,7 +114,7 @@ class App {
         const totalCountEl = document.getElementById('totalCount');
         if (weeklyCountEl) weeklyCountEl.textContent = stats.weeklyCount;
         if (monthlyCountEl) monthlyCountEl.textContent = stats.monthlyCount;
-        if (totalCountEl) totalCountEl.textContent = stats.totalCount;
+        if (totalCountEl) totalCountEl.textContent = stats.total;
 
         // Update last updated time
         const lastUpdatedElement = document.getElementById('lastUpdated');
@@ -153,18 +174,18 @@ class App {
         }
 
         tableBody.innerHTML = incidents.map(incident => `
-            <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.showIncidentDetails('${incident['Incident ID']}')">
+            <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id}')">
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${incident['Date of Incident'] ? new Date(incident['Date of Incident']).toLocaleDateString() : 'N/A'}
+                    ${incident.incident_date ? new Date(incident.incident_date).toLocaleDateString() : 'N/A'}
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.Title)}</td>
+                <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.title || 'Untitled Incident')}</td>
                 <td class="px-6 py-4 text-sm text-gray-500">
-                    ${this.escapeHtml(incident.Location || 'N/A')}, ${this.escapeHtml(incident.State || 'N/A')}
+                    ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(incident['Incident Type'] || 'N/A')}</td>
+                <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
                 <td class="px-6 py-4 text-sm text-gray-500">
-                    ${incident['Source URL'] ? 
-                        `<a href="${this.escapeHtml(incident['Source URL'])}" target="_blank" class="text-indigo-600 hover:text-indigo-900">Source</a>` : 
+                    ${incident.source_url ? 
+                        `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700">${this.escapeHtml(incident.source_name || 'View Source')}</a>` : 
                         'N/A'}
                 </td>
             </tr>
@@ -172,16 +193,22 @@ class App {
     }
 
     showError(message) {
-        // Remove any existing error notifications
-        const existingNotifications = document.querySelectorAll('.error-notification');
-        existingNotifications.forEach(n => n.remove());
+        // Show error banner
+        const errorBanner = document.getElementById('errorBanner');
+        if (errorBanner) {
+            const messageEl = errorBanner.querySelector('p');
+            if (messageEl) {
+                messageEl.textContent = message;
+            }
+            errorBanner.classList.remove('hidden');
+        }
 
-        // Create error notification
+        // Also show toast notification
         const notification = document.createElement('div');
-        notification.className = 'error-notification fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50';
+        notification.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50';
         notification.innerHTML = `
             <strong class="font-bold">Error!</strong>
-            <span class="block sm:inline"> ${message}</span>
+            <span class="block sm:inline"> ${this.escapeHtml(message)}</span>
             <button class="absolute top-0 bottom-0 right-0 px-4 py-3 hover:bg-red-200 rounded-r" onclick="this.parentElement.remove()">
                 <span class="sr-only">Dismiss</span>
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,21 +237,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const app = new App();
     window.app = app;
     window.showIncidentDetails = (incidentId) => {
-        const incident = dataManager.getIncidents().find(i => i['Incident ID'] === incidentId);
+        const incident = dataManager.getIncidents().find(i => i.incident_id === incidentId);
         if (!incident) return;
+        
         const modal = document.getElementById('incidentModal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
+        
         if (modal && modalTitle && modalContent) {
-            modalTitle.textContent = incident.Title;
+            modalTitle.textContent = incident.title || 'Untitled Incident';
             modalContent.innerHTML = `
                 <div class="space-y-2">
-                    <p><strong>Date:</strong> ${incident['Date of Incident'] ? new Date(incident['Date of Incident']).toLocaleDateString() : 'N/A'}</p>
-                    <p><strong>Location:</strong> ${app.escapeHtml(incident.Location || 'N/A')}, ${app.escapeHtml(incident.State || 'N/A')}</p>
-                    <p><strong>Type:</strong> ${app.escapeHtml(incident['Incident Type'] || 'N/A')}</p>
-                    <p><strong>Community:</strong> ${app.escapeHtml(incident['Victim Community'] || 'N/A')}</p>
-                    <p><strong>Description:</strong> ${app.escapeHtml(incident.Description || 'N/A')}</p>
-                    ${incident['Source URL'] ? `<p><strong>Source:</strong> <a href="${app.escapeHtml(incident['Source URL'])}" target="_blank" class="text-primary-600 hover:text-primary-700">View Source</a></p>` : ''}
+                    <p><strong>Date:</strong> ${incident.incident_date ? new Date(incident.incident_date).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Location:</strong> ${app.escapeHtml(incident.location_summary || 'N/A')}, ${app.escapeHtml(incident.state || 'N/A')}</p>
+                    <p><strong>Type:</strong> ${app.escapeHtml(incident.incident_type || 'N/A')}</p>
+                    <p><strong>Victim Group:</strong> ${app.escapeHtml(incident.victim_group || 'N/A')}</p>
+                    <p><strong>Description:</strong> ${app.escapeHtml(incident.summary || 'N/A')}</p>
+                    ${incident.source_url ? `
+                        <p><strong>Source:</strong> 
+                            <a href="${app.escapeHtml(incident.source_url)}" 
+                               target="_blank" 
+                               rel="noopener noreferrer" 
+                               class="text-indigo-600 hover:text-indigo-700">
+                                ${app.escapeHtml(incident.source_name || 'View Source')}
+                            </a>
+                        </p>
+                    ` : ''}
                 </div>
             `;
             modal.classList.remove('hidden');

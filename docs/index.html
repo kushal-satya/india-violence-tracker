@@ -21,6 +21,16 @@
     <link rel="preload" href="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js" as="script">
 </head>
 <body class="bg-gray-50 min-h-screen">
+    <!-- Loading Spinner -->
+    <div id="loader" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="errorBanner" class="fixed top-0 left-0 right-0 bg-red-600 text-white px-4 py-2 text-center z-50 hidden">
+        <p class="font-medium">Error loading data. Please try refreshing the page.</p>
+    </div>
+
     <!-- Header -->
     <header class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

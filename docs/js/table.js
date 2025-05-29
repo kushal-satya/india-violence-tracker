@@ -46,6 +46,7 @@ class TableManager {
             this.initialized = true;
         } catch (error) {
             console.error('Error initializing table:', error);
+            document.getElementById('errorBanner')?.classList.remove('hidden');
             throw new Error('Failed to initialize table');
         }
     }
@@ -214,120 +215,70 @@ class TableManager {
             // Calculate pagination
             this.totalPages = Math.ceil(filteredIncidents.length / this.itemsPerPage);
             const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-            const endIndex = Math.min(startIndex + this.itemsPerPage, filteredIncidents.length);
-            const paginatedIncidents = filteredIncidents.slice(startIndex, endIndex);
+            const endIndex = startIndex + this.itemsPerPage;
+            const pageIncidents = filteredIncidents.slice(startIndex, endIndex);
 
-            // Update pagination info
-            document.getElementById('startItem').textContent = filteredIncidents.length ? startIndex + 1 : 0;
-            document.getElementById('endItem').textContent = endIndex;
-            document.getElementById('totalItems').textContent = filteredIncidents.length;
-            document.getElementById('pageNumbers').textContent = `Page ${this.currentPage} of ${this.totalPages}`;
+            // Update table
+            if (pageIncidents.length === 0) {
+                this.tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                            No incidents found matching your filters
+                        </td>
+                    </tr>
+                `;
+            } else {
+                this.tableBody.innerHTML = pageIncidents.map(incident => `
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${incident.incident_date ? new Date(incident.incident_date).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.title || 'N/A')}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            ${incident.source_url ? 
+                                `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" class="text-indigo-600 hover:text-indigo-900">Source</a>` : 
+                                'N/A'}
+                        </td>
+                    </tr>
+                `).join('');
+            }
 
-            // Update pagination button states
-            const prevButtons = [document.getElementById('prevPage'), document.getElementById('prevPageMobile')];
-            const nextButtons = [document.getElementById('nextPage'), document.getElementById('nextPageMobile')];
-
-            prevButtons.forEach(btn => {
-                btn.disabled = this.currentPage === 1;
-                btn.classList.toggle('opacity-50', this.currentPage === 1);
-                btn.classList.toggle('cursor-not-allowed', this.currentPage === 1);
-            });
-
-            nextButtons.forEach(btn => {
-                btn.disabled = this.currentPage === this.totalPages;
-                btn.classList.toggle('opacity-50', this.currentPage === this.totalPages);
-                btn.classList.toggle('cursor-not-allowed', this.currentPage === this.totalPages);
-            });
-
-            // Render table
-            this.renderTable(paginatedIncidents);
+            // Update pagination
+            this.updatePagination(filteredIncidents.length);
+            
         } catch (error) {
             console.error('Error updating table:', error);
-            this.showError('Failed to update table');
+            document.getElementById('errorBanner')?.classList.remove('hidden');
         }
     }
 
-    renderTable(incidents) {
+    updatePagination(totalItems) {
         if (!this.tableBody) return;
 
-        this.tableBody.innerHTML = '';
+        // Update pagination info
+        document.getElementById('startItem').textContent = totalItems ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0;
+        document.getElementById('endItem').textContent = Math.min(this.currentPage * this.itemsPerPage, totalItems);
+        document.getElementById('totalItems').textContent = totalItems;
+        document.getElementById('pageNumbers').textContent = `Page ${this.currentPage} of ${this.totalPages}`;
 
-        if (incidents.length === 0) {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
-                    <div class="flex flex-col items-center justify-center space-y-2">
-                        <svg class="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p>No incidents found matching the current filters</p>
-                    </div>
-                </td>
-            `;
-            this.tableBody.appendChild(row);
-            return;
-        }
+        // Update pagination button states
+        const prevButtons = [document.getElementById('prevPage'), document.getElementById('prevPageMobile')];
+        const nextButtons = [document.getElementById('nextPage'), document.getElementById('nextPageMobile')];
 
-        incidents.forEach(incident => {
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-gray-50 cursor-pointer transition-colors duration-150';
-            row.addEventListener('click', (e) => {
-                // Prevent modal if clicking a link
-                if (e.target.tagName === 'A') return;
-                this.showIncidentDetails(incident);
-            });
+        prevButtons.forEach(btn => {
+            btn.disabled = this.currentPage === 1;
+            btn.classList.toggle('opacity-50', this.currentPage === 1);
+            btn.classList.toggle('cursor-not-allowed', this.currentPage === 1);
+        });
 
-            const date = incident.incident_date 
-                ? new Date(incident.incident_date).toLocaleDateString()
-                : 'N/A';
-
-            const location = incident.location_summary || 'Location not specified';
-
-            // Create confidence score badge
-            const confidenceBadge = this.createConfidenceBadge(incident.confidence_score);
-            
-            // Create verified badge
-            const verifiedBadge = this.createVerifiedBadge(incident.verified_manually);
-
-            row.innerHTML = `
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-900 max-w-xs">
-                    <div class="truncate">${this.escapeHtml(incident.title || 'No Title')}</div>
-                </td>
-                <td class="px-2 sm:px-4 py-4 whitespace-nowrap text-sm text-gray-500">${date}</td>
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">${this.escapeHtml(location)}</td>
-                <td class="px-2 sm:px-4 py-4 text-sm max-w-xs truncate">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        ${this.escapeHtml(incident.victim_group || 'Not specified')}
-                    </span>
-                </td>
-                <td class="px-2 sm:px-4 py-4 text-sm">
-                    <div class="flex flex-col space-y-1">
-                        ${confidenceBadge}
-                        ${verifiedBadge}
-                    </div>
-                </td>
-            `;
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-900 max-w-xs truncate">${this.escapeHtml(incident.headline)}</td>
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">${this.escapeHtml(location)}</td>
-                <td class="px-2 sm:px-4 py-4 text-sm max-w-xs truncate">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
-                        ${this.escapeHtml(incident.incidentType || 'Not specified')}
-                    </span>
-                </td>
-                <td class="px-2 sm:px-4 py-4 text-sm text-gray-500 max-w-xs truncate">
-                    ${incident.sourceUrl ? `
-                        <a href="${this.escapeHtml(incident.sourceUrl)}" 
-                           target="_blank" 
-                           rel="noopener noreferrer" 
-                           class="text-primary-600 hover:text-primary-700 hover:underline" 
-                           onclick="event.stopPropagation()">
-                            ${this.escapeHtml(incident.sourceName || 'View Source')}
-                        </a>
-                    ` : 'No source available'}
-                </td>
-            `;
-
-            this.tableBody.appendChild(row);
+        nextButtons.forEach(btn => {
+            btn.disabled = this.currentPage === this.totalPages;
+            btn.classList.toggle('opacity-50', this.currentPage === this.totalPages);
+            btn.classList.toggle('cursor-not-allowed', this.currentPage === this.totalPages);
         });
     }
 

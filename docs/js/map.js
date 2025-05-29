@@ -98,6 +98,7 @@ class MapManager {
             this.updateMap(incidents);
         } catch (error) {
             console.error('Error initializing map:', error);
+            document.getElementById('errorBanner')?.classList.remove('hidden');
             throw new Error('Failed to initialize map');
         }
     }
@@ -208,23 +209,30 @@ class MapManager {
             this.incidents = incidents;
             this.markers.clearLayers();
 
-            incidents.forEach(incident => {
-                if (incident.lat && incident.lon) {
-                    const marker = L.marker(
-                        [incident.lat, incident.lon],
-                        { icon: this.createMarkerIcon(incident) }
-                    );
+            // Filter incidents with valid coordinates
+            const validIncidents = incidents.filter(incident => {
+                const lat = parseFloat(incident.lat);
+                const lon = parseFloat(incident.lon);
+                return !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+            });
 
-                    // Create popup content
-                    const popupContent = this.createPopupContent(incident);
-                    marker.bindPopup(popupContent, {
-                        maxWidth: 300,
-                        className: 'custom-popup',
-                        closeButton: true
-                    });
+            console.info(`[map] Adding ${validIncidents.length} markers (${incidents.length - validIncidents.length} skipped)`);
 
-                    this.markers.addLayer(marker);
-                }
+            validIncidents.forEach(incident => {
+                const marker = L.marker(
+                    [incident.lat, incident.lon],
+                    { icon: this.createMarkerIcon(incident) }
+                );
+
+                // Create popup content
+                const popupContent = this.createPopupContent(incident);
+                marker.bindPopup(popupContent, {
+                    maxWidth: 300,
+                    className: 'custom-popup',
+                    closeButton: true
+                });
+
+                this.markers.addLayer(marker);
             });
 
             // Fit bounds to show all markers
@@ -233,9 +241,12 @@ class MapManager {
                     padding: [50, 50],
                     maxZoom: 12
                 });
+            } else {
+                console.warn('[map] No valid markers to display');
             }
         } catch (error) {
             console.error('Error updating map:', error);
+            document.getElementById('errorBanner')?.classList.remove('hidden');
         }
     }
 
