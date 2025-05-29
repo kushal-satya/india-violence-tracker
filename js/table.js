@@ -139,26 +139,14 @@ class TableManager {
         `;
         paginationControls.appendChild(paginationContainer);
 
-        // Add pagination event listeners
-        document.getElementById('prevPage').addEventListener('click', () => {
+        // Pagination controls
+        document.getElementById('prev-page')?.addEventListener('click', () => {
             if (this.currentPage > 1) {
                 this.currentPage--;
                 this.updateTable();
             }
         });
-        document.getElementById('nextPage').addEventListener('click', () => {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.updateTable();
-            }
-        });
-        document.getElementById('prevPageMobile').addEventListener('click', () => {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.updateTable();
-            }
-        });
-        document.getElementById('nextPageMobile').addEventListener('click', () => {
+        document.getElementById('next-page')?.addEventListener('click', () => {
             if (this.currentPage < this.totalPages) {
                 this.currentPage++;
                 this.updateTable();
@@ -222,7 +210,7 @@ class TableManager {
             if (pageIncidents.length === 0) {
                 this.tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                        <td colspan="6" style="padding: var(--space-lg); text-align: center; color: var(--color-text-muted);">
                             No incidents found matching your filters
                         </td>
                     </tr>
@@ -238,21 +226,21 @@ class TableManager {
                     }) : 'N/A';
                     
                     return `
-                        <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <tr style="cursor: pointer;" onmouseover="this.style.backgroundColor='var(--color-border-light)'" onmouseout="this.style.backgroundColor='transparent'" onclick="window.showIncidentDetails('${incident.incident_id || ''}')">
+                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
                                 ${serialNumber}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap;">
                                 ${formattedDate}
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-900">${this.escapeHtml(incident.title || 'N/A')}</td>
-                            <td class="px-6 py-4 text-sm text-gray-500">
+                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-primary);">${this.escapeHtml(incident.title || 'N/A')}</td>
+                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
                                 ${this.escapeHtml(incident.location_summary || 'N/A')}, ${this.escapeHtml(incident.state || 'N/A')}
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-500">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
-                            <td class="px-6 py-4 text-sm text-gray-500">
+                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">${this.escapeHtml(incident.incident_type || 'N/A')}</td>
+                            <td style="padding: var(--space-base) var(--space-lg); font-size: var(--text-sm); color: var(--color-text-muted);">
                                 ${incident.source_url ? 
-                                    `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" class="text-indigo-600 hover:text-indigo-900">Source</a>` : 
+                                    `<a href="${this.escapeHtml(incident.source_url)}" target="_blank" style="color: var(--color-accent); text-decoration: none;">Source</a>` : 
                                     'N/A'}
                             </td>
                         </tr>
@@ -273,26 +261,42 @@ class TableManager {
         if (!this.tableBody) return;
 
         // Update pagination info
-        document.getElementById('startItem').textContent = totalItems ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0;
-        document.getElementById('endItem').textContent = Math.min(this.currentPage * this.itemsPerPage, totalItems);
-        document.getElementById('totalItems').textContent = totalItems;
-        document.getElementById('pageNumbers').textContent = `Page ${this.currentPage} of ${this.totalPages}`;
+        const showingCountEl = document.getElementById('showing-count');
+        const totalCountEl = document.getElementById('total-count');
+        const pageInfoEl = document.getElementById('page-info');
+
+        if (showingCountEl) {
+            showingCountEl.textContent = totalItems ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0;
+        }
+        if (totalCountEl) {
+            const endItem = Math.min(this.currentPage * this.itemsPerPage, totalItems);
+            totalCountEl.textContent = totalItems;
+            if (showingCountEl) {
+                // Update showing count to show range
+                showingCountEl.parentElement.innerHTML = `
+                    Showing ${totalItems ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0}-${endItem} of ${totalItems} incidents
+                `;
+            }
+        }
+        if (pageInfoEl) {
+            pageInfoEl.textContent = `Page ${this.currentPage} of ${this.totalPages}`;
+        }
 
         // Update pagination button states
-        const prevButtons = [document.getElementById('prevPage'), document.getElementById('prevPageMobile')];
-        const nextButtons = [document.getElementById('nextPage'), document.getElementById('nextPageMobile')];
+        const prevButton = document.getElementById('prev-page');
+        const nextButton = document.getElementById('next-page');
 
-        prevButtons.forEach(btn => {
-            btn.disabled = this.currentPage === 1;
-            btn.classList.toggle('opacity-50', this.currentPage === 1);
-            btn.classList.toggle('cursor-not-allowed', this.currentPage === 1);
-        });
+        if (prevButton) {
+            prevButton.disabled = this.currentPage === 1;
+            prevButton.style.opacity = this.currentPage === 1 ? '0.5' : '1';
+            prevButton.style.cursor = this.currentPage === 1 ? 'not-allowed' : 'pointer';
+        }
 
-        nextButtons.forEach(btn => {
-            btn.disabled = this.currentPage === this.totalPages;
-            btn.classList.toggle('opacity-50', this.currentPage === this.totalPages);
-            btn.classList.toggle('cursor-not-allowed', this.currentPage === this.totalPages);
-        });
+        if (nextButton) {
+            nextButton.disabled = this.currentPage === this.totalPages;
+            nextButton.style.opacity = this.currentPage === this.totalPages ? '0.5' : '1';
+            nextButton.style.cursor = this.currentPage === this.totalPages ? 'not-allowed' : 'pointer';
+        }
     }
 
     showIncidentDetails(incident) {

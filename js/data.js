@@ -158,11 +158,20 @@ class DataManager {
             this.incidents.slice(0, 3).forEach((incident, i) => {
                 console.log(`Incident ${i+1}:`, JSON.stringify({
                     title: incident.title,
+                    incident_date: incident.incident_date,
+                    published_at: incident.published_at,
+                    location_summary: incident.location_summary,
+                    state: incident.state,
+                    district: incident.district,
+                    victim_group: incident.victim_group,
+                    incident_type: incident.incident_type,
                     lat: incident.lat,
                     lon: incident.lon,
                     latType: typeof incident.lat,
-                    lonType: typeof incident.lon
-                }));
+                    lonType: typeof incident.lon,
+                    source_url: incident.source_url,
+                    source_name: incident.source_name
+                }, null, 2));
             });
             
             console.timeEnd('[parse] Data processing');
