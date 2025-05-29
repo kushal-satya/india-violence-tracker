@@ -1,14 +1,15 @@
-<!-- Premium Professional Dashboard - FINAL VERSION -->
+<!-- Redeploy trigger: 2024-06-07-PROFESSIONAL -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>India Violence Tracker | Professional Intelligence Dashboard</title>
-    <meta name="description" content="Advanced monitoring and analysis of violence against marginalized communities in India. Real-time data intelligence platform.">
+    <title>India Violence Tracker | Real-time Dashboard</title>
+    <meta name="description" content="Professional monitoring and analysis of violence against Dalit, Bahujan, Adivasi, and minority communities in India">
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="manifest" href="site.webmanifest">
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/style.css">
@@ -21,27 +22,31 @@
     <link rel="preload" href="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js" as="script">
 </head>
 <body>
-    <!-- Premium Loading Spinner -->
+    <!-- Loading Spinner -->
     <div id="loader" class="loading-screen hidden">
         <div class="loading-spinner"></div>
-        <p class="loading-text">Initializing intelligence dashboard...</p>
+        <p class="loading-text">Loading incident data...</p>
     </div>
 
-    <!-- Premium Header -->
+    <!-- Error Banner -->
+    <div id="errorBanner" class="error-banner hidden">
+        <p>Error loading data. Please try refreshing the page.</p>
+    </div>
+
+    <!-- Header -->
     <header class="site-header">
         <div class="container">
             <div class="header-content">
                 <div class="logo-section">
-                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="16" cy="16" r="16" fill="url(#gradient)"/>
+                        <path d="M12 10h8v2h-8zm0 4h8v2h-8zm0 4h6v2h-6z" fill="white"/>
                         <defs>
-                            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                            <linearGradient id="gradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#6366f1"/>
+                                <stop offset="1" stop-color="#818cf8"/>
                             </linearGradient>
                         </defs>
-                        <rect width="40" height="40" rx="12" fill="url(#logoGradient)"/>
-                        <path d="M12 14h16v2H12zm0 4h16v2H12zm0 4h12v2H12z" fill="white" fill-opacity="0.9"/>
-                        <circle cx="30" cy="12" r="3" fill="white" fill-opacity="0.8"/>
                     </svg>
                     <h1 class="site-title">India Violence Tracker</h1>
                 </div>
@@ -58,25 +63,23 @@
         </div>
     </header>
 
-    <!-- Premium Stats Section -->
+    <!-- Stats Section -->
     <section class="stats-section">
         <div class="container">
-            <h2 style="text-align: center; font-size: var(--text-3xl); font-weight: 800; margin-bottom: var(--space-4); color: var(--color-text-inverse);">Intelligence Overview</h2>
-            <p style="text-align: center; font-size: var(--text-lg); opacity: 0.9; margin-bottom: var(--space-8); color: var(--color-text-inverse);">Real-time monitoring of violence against marginalized communities</p>
             <div class="stats-grid">
-                <div class="stat-card animate-fade-in-up">
+                <div class="stat-card">
                     <div class="stat-number" id="total-incidents">--</div>
                     <div class="stat-label">Total Incidents</div>
                 </div>
-                <div class="stat-card animate-fade-in-up" style="animation-delay: 0.1s;">
+                <div class="stat-card">
                     <div class="stat-number" id="this-week">--</div>
                     <div class="stat-label">This Week</div>
                 </div>
-                <div class="stat-card animate-fade-in-up" style="animation-delay: 0.2s;">
+                <div class="stat-card">
                     <div class="stat-number" id="this-month">--</div>
                     <div class="stat-label">This Month</div>
                 </div>
-                <div class="stat-card animate-fade-in-up" style="animation-delay: 0.3s;">
+                <div class="stat-card">
                     <div class="stat-number" id="top-state">--</div>
                     <div class="stat-label">Most Affected State</div>
                 </div>
@@ -84,13 +87,9 @@
         </div>
     </section>
 
-    <!-- Premium Filters Section -->
+    <!-- Filters Section -->
     <section class="filters-section">
         <div class="container">
-            <div style="text-align: center; margin-bottom: var(--space-8);">
-                <h3 style="font-size: var(--text-xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: var(--space-2);">Advanced Filters</h3>
-                <p style="font-size: var(--text-base); color: var(--color-text-tertiary);">Refine your analysis with precision controls</p>
-            </div>
             <div class="filters-grid">
                 <div class="filter-group">
                     <label for="date-from" class="filter-label">From Date</label>
@@ -119,53 +118,49 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <button id="clear-filters" class="btn btn-secondary" style="margin-top: 28px;">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
-                        </svg>
-                        Clear All
+                    <button id="clear-filters" class="btn btn-secondary" style="margin-top: 24px;">
+                        Clear Filters
                     </button>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Premium Main Content -->
+    <!-- Main Content -->
     <main class="main-content">
         <div class="container">
             <!-- Loading State -->
             <div id="loading-screen" class="loading-screen">
                 <div class="loading-spinner"></div>
-                <p class="loading-text">Analyzing incident data...</p>
+                <p class="loading-text">Loading incident data...</p>
             </div>
 
             <!-- Error State -->
-            <div id="error-screen" class="loading-screen hidden">
-                <div style="font-size: var(--text-5xl); margin-bottom: var(--space-6);">⚠️</div>
-                <h2 style="color: var(--color-text-primary); margin-bottom: var(--space-4);">Failed to Load Data</h2>
-                <p style="color: var(--color-text-tertiary); margin-bottom: var(--space-8);">Unable to fetch incident data. Please try again later.</p>
+            <div id="error-screen" class="error-screen hidden">
+                <div class="error-icon">⚠️</div>
+                <h2>Failed to Load Data</h2>
+                <p>Unable to fetch incident data. Please try again later.</p>
                 <button id="retry-btn" class="btn btn-primary">Retry</button>
             </div>
 
-            <!-- Premium Dashboard -->
+            <!-- Main Dashboard -->
             <div id="dashboard" class="content-grid hidden">
-                <!-- Geographic Intelligence Section -->
-                <section class="card card-premium">
+                <!-- Map Section -->
+                <section class="card map-section">
                     <div class="section-header">
-                        <h2 class="section-title">Geographic Intelligence</h2>
-                        <p class="section-subtitle">Interactive map visualization of incident distribution across India</p>
+                        <h2 class="section-title">Incident Map</h2>
+                        <p class="section-subtitle">Geographic distribution of reported incidents</p>
                     </div>
                     <div class="map-container">
                         <div id="map"></div>
                     </div>
                 </section>
 
-                <!-- Analytics Dashboard -->
+                <!-- Charts Section -->
                 <div class="charts-grid">
                     <section class="card">
                         <div class="section-header">
-                            <h3 class="section-title">Incident Classification</h3>
-                            <p class="section-subtitle">Distribution by incident type</p>
+                            <h3 class="section-title">Incidents by Type</h3>
                         </div>
                         <div class="chart-container">
                             <canvas id="incidentTypeChart"></canvas>
@@ -175,7 +170,6 @@
                     <section class="card">
                         <div class="section-header">
                             <h3 class="section-title">Affected Communities</h3>
-                            <p class="section-subtitle">Breakdown by victim groups</p>
                         </div>
                         <div class="chart-container">
                             <canvas id="victimGroupChart"></canvas>
@@ -184,8 +178,7 @@
 
                     <section class="card">
                         <div class="section-header">
-                            <h3 class="section-title">Regional Analysis</h3>
-                            <p class="section-subtitle">State-wise incident distribution</p>
+                            <h3 class="section-title">State Distribution</h3>
                         </div>
                         <div class="chart-container">
                             <canvas id="stateChart"></canvas>
@@ -193,20 +186,21 @@
                     </section>
                 </div>
 
-                <!-- Intelligence Data Table -->
-                <section class="card">
+                <!-- Data Table Section -->
+                <section class="card table-section">
                     <div class="table-header">
                         <div>
-                            <h2 class="section-title">Incident Intelligence Database</h2>
-                            <p class="section-subtitle">Comprehensive incident records with verified data sources</p>
+                            <h2 class="section-title">Recent Incidents</h2>
+                            <p class="section-subtitle">Detailed view of reported incidents</p>
                         </div>
                         <div class="table-controls">
-                            <input type="text" id="search-input" placeholder="Search incidents, locations, or sources..." class="search-input" style="min-width: 300px;">
+                            <input type="text" id="search-input" placeholder="Search incidents..." class="search-input">
                             <select id="sort-select" class="filter-select">
                                 <option value="incident_date">Sort by Date</option>
                                 <option value="state">Sort by State</option>
                                 <option value="incident_type">Sort by Type</option>
                                 <option value="victim_group">Sort by Victim Group</option>
+                                <option value="confidence_score">Sort by Confidence</option>
                             </select>
                         </div>
                     </div>
@@ -216,9 +210,9 @@
                                 <tr>
                                     <th>#</th>
                                     <th>Date</th>
-                                    <th>Headline</th>
+                                    <th>Title</th>
                                     <th>Location</th>
-                                    <th>Classification</th>
+                                    <th>Type</th>
                                     <th>Source</th>
                                 </tr>
                             </thead>
@@ -229,65 +223,54 @@
                     </div>
                     <div class="table-footer">
                         <div>
-                            <span style="font-size: var(--text-sm); color: var(--color-text-tertiary); font-weight: 500;">
-                                Showing <span id="showing-count">0</span> of <span id="total-count">0</span> verified incidents
+                            <span style="font-size: var(--text-sm); color: var(--color-text-muted);">
+                                Showing <span id="showing-count">0</span> of <span id="total-count">0</span> incidents
                             </span>
                         </div>
-                        <div style="display: flex; gap: var(--space-3); align-items: center;">
-                            <button id="prev-page" class="btn btn-secondary">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                                </svg>
-                                Previous
-                            </button>
-                            <span id="page-info" style="font-size: var(--text-sm); color: var(--color-text-tertiary); font-weight: 600; font-family: 'JetBrains Mono', monospace;">Page 1</span>
-                            <button id="next-page" class="btn btn-secondary">
-                                Next
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                                </svg>
-                            </button>
+                        <div style="display: flex; gap: var(--space-sm); align-items: center;">
+                            <button id="fix-coordinates-btn" class="btn btn-secondary">Fix Coordinates</button>
+                            <button id="prev-page" class="btn btn-secondary">Previous</button>
+                            <span id="page-info" style="font-size: var(--text-sm); color: var(--color-text-muted);">Page 1</span>
+                            <button id="next-page" class="btn btn-secondary">Next</button>
                         </div>
                     </div>
+                    <div id="paginationControls"></div>
                 </section>
             </div>
         </div>
     </main>
 
-    <!-- Premium Footer -->
+    <!-- Footer -->
     <footer class="site-footer">
         <div class="container">
             <div class="footer-grid">
                 <div class="footer-section">
-                    <h3>Mission Statement</h3>
+                    <h3>About This Project</h3>
                     <p>
-                        Advanced intelligence platform dedicated to monitoring, analyzing, and reporting violence 
-                        against Dalit, Bahujan, Adivasi, and minority communities across India. Our mission is to 
-                        promote transparency, accountability, and justice through data-driven insights.
+                        Professional monitoring and analysis of violence and discrimination against Dalit, Bahujan, Adivasi, 
+                        and minority communities in India. Data sourced from verified news reports and official sources.
                     </p>
                 </div>
                 <div class="footer-section">
-                    <h3>Data Sources & Methodology</h3>
-                    <ul style="list-style: none; padding: 0;">
-                        <li style="margin-bottom: var(--space-2);">• Verified news reports from credible sources</li>
-                        <li style="margin-bottom: var(--space-2);">• Real-time RSS feed monitoring</li>
-                        <li style="margin-bottom: var(--space-2);">• Manual verification processes</li>
-                        <li style="margin-bottom: var(--space-2);">• Community-reported incidents</li>
-                        <li style="margin-bottom: var(--space-2);">• Geospatial data validation</li>
+                    <h3>Data Sources</h3>
+                    <ul>
+                        <li>• Major Indian news outlets</li>
+                        <li>• RSS feeds and APIs</li>
+                        <li>• Manual verification process</li>
+                        <li>• Community reports</li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h3>Important Disclaimers</h3>
+                    <h3>Important Note</h3>
                     <p>
-                        This database represents documented incidents only. Many cases remain unreported due to 
-                        various systemic barriers. Data accuracy depends on source reliability. This platform 
-                        aims to raise awareness and support evidence-based advocacy for justice and equality.
+                        This data represents reported incidents only. Many cases go unreported. 
+                        This tracker aims to raise awareness and promote justice through data transparency.
                     </p>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 India Violence Tracker. Open source intelligence for social justice.</p>
-                <p>Last database update: <span id="footer-last-updated">--</span></p>
+                <p>&copy; 2025 India Violence Tracker. Open source project for social justice.</p>
+                <p>Last updated: <span id="footer-last-updated">--</span></p>
             </div>
         </div>
     </footer>
@@ -297,11 +280,17 @@
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
     <script src="https://unpkg.com/chart.js@4.4.0/dist/chart.umd.js"></script>
     
-    <!-- Application modules -->
-    <script type="module" src="js/data.js?v=4"></script>
-    <script type="module" src="js/map.js?v=4"></script>
-    <script type="module" src="js/charts.js?v=4"></script>
-    <script type="module" src="js/table.js?v=4"></script>
-    <script type="module" src="js/app.js?v=4"></script>
+    <!-- Debug script - helps diagnose map issues -->
+    <script src="js/debug.js?v=3"></script>
+    
+    <!-- App modules -->
+    <script type="module" src="js/data.js?v=3"></script>
+    <script type="module" src="js/map.js?v=3"></script>
+    <script type="module" src="js/charts.js?v=3"></script>
+    <script type="module" src="js/table.js?v=3"></script>
+    <script type="module" src="js/app.js?v=3"></script>
+    
+    <!-- Debug adapter - makes modules available for debugging -->
+    <script type="module" src="js/debug-adapter.js?v=3"></script>
 </body>
 </html>
