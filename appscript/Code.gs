@@ -1,5 +1,5 @@
-// Google Apps Script for Dalit Violence Tracker
-// Complete solution with feed management, data processing, Gemini AI integration, and public access
+// Google Apps Script for India Violence Tracker
+// Enhanced version with language translation, keyword filtering, and duplicate detection
 
 // ============= CONFIGURATION =============
 const CONFIG = {
@@ -7,70 +7,99 @@ const CONFIG = {
   SHEETS: {
     FEEDS: 'feeds',
     INCIDENTS: 'IncidentData',
-    MASTER: 'MasterData', // This sheet is in CONFIG but not explicitly used in provided code. Review if needed.
+    PUBLIC: 'PublicData',
     LOGS: 'SystemLogs',
-    PUBLIC: 'PublicData'  // This will be the only publicly accessible sheet
+    DUPLICATES: 'DuplicateTracker',
+    LOCATIONS: 'LocationCache'
   },
   
   // Headers for different sheets
   HEADERS: {
-    FEEDS: ['Name', 'Section', 'URL', 'Active', 'Last Checked', 'Status', 'Last Success', 'Error Count', 'Next Article Index'], // Added Next Article Index
+    FEEDS: ['Name', 'Section', 'URL', 'Active', 'Last Checked', 'Status', 'Last Success', 'Error Count', 'Next Article Index'],
     INCIDENTS: [
       'Incident ID',
-      'Title',
-      'Description', // Short description from RSS
-      'Date of Incident', // Expected from Gemini
-      'Date Published',   // From RSS
-      'Location Text',    // Raw location text from Gemini (fullText)
-      'State',            // Expected from Gemini
-      'District',         // Expected from Gemini
-      'City/Village',     // Expected from Gemini
-      'Latitude',         // Expected from Gemini
-      'Longitude',        // Expected from Gemini
-      'Victim Community', // Expected from Gemini
-      'Incident Type',    // Expected from Gemini
-      'Perpetrators',     // Potentially from Gemini, or manual
-      'Police Action',    // Potentially from Gemini, or manual
-      'Source URL',       // From RSS
-      'Source Name',      // From Feeds sheet
-      'Source Section',   // From Feeds sheet
-      'RSS Feed Source',  // From Feeds sheet
-      'Gemini Analysis',  // Store raw Gemini response (JSON string) for review
-      'Last Updated',     // Timestamp of processing
-      'Verification Status', // Could be updated by Gemini or manually
-      'Notes'             // Manual notes
-    ],
-    PUBLIC: [ // Simplified for public view
-      'Incident ID',
-      'Title',
-      'Date of Incident',
-      'Location Summary', // e.g., City, District, State
+      'Headline',
+      'Summary',
+      'Incident Date',
+      'Published At',
+      'Location',
+      'District',
       'State',
-      'Victim Community',
+      'Latitude',
+      'Longitude',
+      'Victim Group',
       'Incident Type',
-      'Source Name',
+      'Alleged Perpetrator',
+      'Police Action',
       'Source URL',
+      'Source Name',
+      'RSS Feed ID',
+      'Content Hash',
+      'Language',
+      'Confidence Score',
+      'Verified Manually',
       'Last Updated'
     ],
-    LOGS: ['Timestamp', 'Level', 'Message']
+    PUBLIC: [
+      'incident_id',
+      'headline',
+      'summary', 
+      'incident_date',
+      'published_at',
+      'location',
+      'district',
+      'state',
+      'lat',
+      'lon',
+      'victim_group',
+      'incident_type',
+      'alleged_perp',
+      'police_action',
+      'source_url',
+      'source_name',
+      'rss_feed_id',
+      'confidence_score',
+      'verified_manually'
+    ],
+    LOGS: ['Timestamp', 'Level', 'Function', 'Message', 'Details'],
+    DUPLICATES: ['URL Hash', 'Content Hash', 'Incident ID', 'Source URL', 'Title', 'Date Added'],
+    LOCATIONS: ['Location Text', 'State', 'District', 'City', 'Latitude', 'Longitude', 'Last Updated']
   },
   
-  // Keywords for initial filtering (Gemini will do more advanced filtering)
+  // Enhanced keywords for filtering
   KEYWORDS: {
-    communities: ['dalit', 'bahujan', 'adivasi', 'minority', 'sc', 'st', 'obc', 'scheduled caste', 'scheduled tribe', 'harijan', 'girijan'],
-    incidents: ['violence', 'attack', 'discrimination', 'atrocity', 'hate crime', 'assault', 'harassment', 'murder', 'killing', 'beating', 'lynching', 'rape', 'molestation', 'casteist slur', 'threatened', 'killed', 'injured', 'abused']
+    violence: [
+      'violence', 'attack', 'assault', 'murder', 'killing', 'death', 'lynching', 'beating', 'thrashing',
+      'rape', 'molestation', 'harassment', 'torture', 'brutality', 'shot', 'stabbed', 'injured', 'hurt',
+      'हिंसा', 'हमला', 'मार', 'हत्या', 'पीटा'
+    ],
+    communities: [
+      'dalit', 'dalits', 'scheduled caste', 'sc', 'adivasi', 'tribal', 'scheduled tribe', 'st',
+      'muslim', 'muslims', 'christian', 'christians', 'minority', 'minorities', 'obc',
+      'backward class', 'bahujan', 'harijan', 'girijan',
+      'दलित', 'आदिवासी', 'मुस्लिम', 'ईसाई', 'अल्पसंख्यक'
+    ],
+    discrimination: [
+      'discrimination', 'atrocity', 'hate crime', 'caste', 'casteist', 'communal', 'religious',
+      'untouchability', 'boycott', 'ostracized', 'excluded', 'denied entry',
+      'भेदभाव', 'अत्याचार', 'जातिवाद', 'साम्प्रदायिक'
+    ]
   },
   
-  // Update settings
-  UPDATE_FREQUENCY: 1, // Hours - This will now be the frequency for processing ONE feed. Adjust as needed.
-                      // Consider changing to minutes if you have many feeds: .everyMinutes(30) for example.
-  MAX_ARTICLES_PER_FEED_BATCH: 35, // Number of articles to process from a single feed in one execution run
-  MAX_LOG_ENTRIES: 1000,
+  // Processing settings
+  MAX_ARTICLES_PER_RUN: 50,
+  MAX_ARTICLES_PER_FEED_BATCH: 10,
+  MAX_LOG_ENTRIES: 2000,
+  DUPLICATE_CHECK_DAYS: 30,
+  UPDATE_FREQUENCY: 2, // Hours between runs
   
   // Gemini API Configuration
-  // IMPORTANT: Store your actual API key in Script Properties (Project Settings > Script Properties)
-  // under the name 'GEMINI_API_KEY'.
-  GEMINI_MODEL_NAME: "gemini-1.5-flash-latest" 
+  GEMINI_MODEL_NAME: "gemini-1.5-flash-latest",
+  GEMINI_TRANSLATE_MODEL: "gemini-1.5-flash-latest",
+  
+  // Language settings
+  SUPPORTED_LANGUAGES: ['hi', 'en'], // Hindi and English
+  DEFAULT_LANGUAGE: 'en'
 };
 
 // ============= SHEET MANAGEMENT =============
@@ -79,30 +108,20 @@ function initializeSheets() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
+    // Create all required sheets
     Object.entries(CONFIG.SHEETS).forEach(([key, sheetName]) => {
       let sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
-        logSystemEvent(`Sheet "${sheetName}" created.`, 'INFO');
+        logSystemEvent(`Sheet "${sheetName}" created.`, 'INFO', 'initializeSheets');
       }
       
       const headers = CONFIG.HEADERS[key.toUpperCase()]; 
       if (headers) {
-        let existingHeadersMatch = false;
-        if (sheet.getLastRow() > 0 && sheet.getLastColumn() >= headers.length) {
-            const currentHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-            existingHeadersMatch = currentHeaders.every((val, index) => val === headers[index]);
-        }
-
-        if (!existingHeadersMatch) {
-            if (sheet.getLastRow() > 0 && !existingHeadersMatch) {
-                 logSystemEvent(`Headers in sheet "${sheetName}" are different or incomplete. Re-applying headers.`, 'WARNING');
-            }
-            sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-            formatHeaders(sheet, headers.length);
-        }
+        setupSheetHeaders(sheet, headers, sheetName);
       }
       
+      // Apply sheet-specific formatting
       switch(sheetName) { 
         case CONFIG.SHEETS.FEEDS:
           formatFeedsSheet(sheet);
@@ -116,28 +135,52 @@ function initializeSheets() {
         case CONFIG.SHEETS.LOGS:
           formatLogsSheet(sheet); 
           break;
+        case CONFIG.SHEETS.DUPLICATES:
+          formatDuplicatesSheet(sheet);
+          break;
+        case CONFIG.SHEETS.LOCATIONS:
+          formatLocationsSheet(sheet);
+          break;
       }
     });
     
     setupSheetProtection(ss); 
     
+    // Initialize feeds data
     const feedsSheet = ss.getSheetByName(CONFIG.SHEETS.FEEDS);
     if (feedsSheet && feedsSheet.getLastRow() <= 1) { 
       addInitialFeeds(feedsSheet);
     }
     
-    logSystemEvent('System sheets checked/initialized successfully', 'INFO');
+    logSystemEvent('All sheets initialized successfully', 'INFO', 'initializeSheets');
     return true;
   } catch (error) {
-    logSystemEvent(`Error initializing sheets: ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Error initializing sheets: ${error.message}`, 'ERROR', 'initializeSheets', error.stack);
     return false;
+  }
+}
+
+function setupSheetHeaders(sheet, headers, sheetName) {
+  let existingHeadersMatch = false;
+  if (sheet.getLastRow() > 0 && sheet.getLastColumn() >= headers.length) {
+    const currentHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+    existingHeadersMatch = currentHeaders.every((val, index) => val === headers[index]);
+  }
+
+  if (!existingHeadersMatch) {
+    if (sheet.getLastRow() > 0) {
+      logSystemEvent(`Updating headers in sheet "${sheetName}"`, 'WARNING', 'setupSheetHeaders');
+    }
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaders(sheet, headers.length);
   }
 }
 
 function formatHeaders(sheet, numColumns) {
   if (numColumns > 0 && sheet) { 
     sheet.getRange(1, 1, 1, numColumns)
-      .setBackground('#e2e8f0') 
+      .setBackground('#1f2937') 
+      .setFontColor('#ffffff')
       .setFontWeight('bold')
       .setFontFamily('Arial')
       .setWrap(true);
@@ -175,7 +218,7 @@ function formatFeedsSheet(sheet) {
 
 function formatIncidentsSheet(sheet) {
   if (!sheet) return;
-  const verificationStatusCol = CONFIG.HEADERS.INCIDENTS.indexOf('Verification Status') + 1;
+  const verificationStatusCol = CONFIG.HEADERS.INCIDENTS.indexOf('Verified Manually') + 1;
   if (verificationStatusCol > 0 && sheet.getMaxRows() > 1) {
     const statusRange = sheet.getRange(2, verificationStatusCol, sheet.getMaxRows() - 1, 1);
     const rule = SpreadsheetApp.newDataValidation()
@@ -189,11 +232,11 @@ function formatIncidentsSheet(sheet) {
           if (colIndex > 0) sheet.setColumnWidth(colIndex, width);
       } catch(e){ logSystemEvent(`Error formatting Incidents sheet column '${headerName}': ${e.message}`, 'WARNING');}
   };
-  setColWidth('Incident ID', 120); setColWidth('Title', 300); setColWidth('Description', 200);
-  setColWidth('Date of Incident', 120); setColWidth('Date Published', 120); setColWidth('Location Text', 200);
-  setColWidth('State', 100); setColWidth('District', 100); setColWidth('City/Village', 100);
+  setColWidth('Incident ID', 120); setColWidth('Headline', 300); setColWidth('Summary', 200);
+  setColWidth('Incident Date', 120); setColWidth('Published At', 120); setColWidth('Location', 200);
+  setColWidth('State', 100); setColWidth('District', 100); setColWidth('Victim Group', 120);
   setColWidth('Latitude', 100); setColWidth('Longitude', 100); setColWidth('Source URL', 250);
-  setColWidth('Gemini Analysis', 200); setColWidth('Verification Status', 150);
+  setColWidth('Incident Type', 150); setColWidth('Verified Manually', 150);
 }
 
 function formatPublicSheet(sheet) {
@@ -216,15 +259,87 @@ function formatLogsSheet(sheet) {
           if (colIndex > 0) sheet.setColumnWidth(colIndex, width);
       } catch(e){ logSystemEvent(`Error formatting Logs sheet column '${headerName}': ${e.message}`, 'WARNING');}
   };
-  setColWidth('Timestamp', 180); setColWidth('Level', 80); setColWidth('Message', 500);
+  setColWidth('Timestamp', 180); setColWidth('Level', 80); setColWidth('Function', 120); setColWidth('Message', 500); setColWidth('Details', 300);
   
   if (sheet.getMaxRows() > 1) {
-    const logDataRange = sheet.getRange(2, 1, sheet.getMaxRows() -1 , CONFIG.HEADERS.LOGS.length);
-    if (logDataRange) { 
+    try {
+      const logDataRange = sheet.getRange(2, 1, sheet.getMaxRows() -1 , CONFIG.HEADERS.LOGS.length);
+      if (logDataRange) { 
+        // Clear any existing banding first
+        const existingBandings = sheet.getBandings();
+        existingBandings.forEach(banding => banding.remove());
+        
+        // Now apply new banding
         logDataRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY)
                     .setHeaderRowColor('#e2e8f0'); 
+      }
+    } catch (bandingError) {
+      logSystemEvent(`Could not apply banding to logs sheet: ${bandingError.message}`, 'WARNING', 'formatLogsSheet');
     }
   }
+}
+
+function formatLogsSheetSilent(sheet) {
+  if (!sheet) return;
+  const setColWidth = (headerName, width) => {
+      try {
+          const colIndex = CONFIG.HEADERS.LOGS.indexOf(headerName) + 1;
+          if (colIndex > 0) sheet.setColumnWidth(colIndex, width);
+      } catch(e){ 
+        console.warn(`Error formatting Logs sheet column '${headerName}': ${e.message}`);
+      }
+  };
+  setColWidth('Timestamp', 180); setColWidth('Level', 80); setColWidth('Function', 120); setColWidth('Message', 500); setColWidth('Details', 300);
+  
+  if (sheet.getMaxRows() > 1) {
+    try {
+      const logDataRange = sheet.getRange(2, 1, sheet.getMaxRows() -1 , CONFIG.HEADERS.LOGS.length);
+      if (logDataRange) { 
+        // Clear any existing banding first
+        const existingBandings = sheet.getBandings();
+        existingBandings.forEach(banding => banding.remove());
+        
+        // Now apply new banding
+        logDataRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY)
+                    .setHeaderRowColor('#e2e8f0'); 
+      }
+    } catch (bandingError) {
+      console.warn(`Could not apply banding to logs sheet: ${bandingError.message}`);
+    }
+  }
+}
+
+function formatDuplicatesSheet(sheet) {
+  if (!sheet) return;
+  const setColWidth = (headerName, width) => {
+      try {
+          const colIndex = CONFIG.HEADERS.DUPLICATES.indexOf(headerName) + 1;
+          if (colIndex > 0) sheet.setColumnWidth(colIndex, width);
+      } catch(e){ logSystemEvent(`Error formatting Duplicates sheet column '${headerName}': ${e.message}`, 'WARNING');}
+  };
+  setColWidth('URL Hash', 120);
+  setColWidth('Content Hash', 120);
+  setColWidth('Incident ID', 120);
+  setColWidth('Source URL', 350);
+  setColWidth('Title', 300);
+  setColWidth('Date Added', 150);
+}
+
+function formatLocationsSheet(sheet) {
+  if (!sheet) return;
+  const setColWidth = (headerName, width) => {
+      try {
+          const colIndex = CONFIG.HEADERS.LOCATIONS.indexOf(headerName) + 1;
+          if (colIndex > 0) sheet.setColumnWidth(colIndex, width);
+      } catch(e){ logSystemEvent(`Error formatting Locations sheet column '${headerName}': ${e.message}`, 'WARNING');}
+  };
+  setColWidth('Location Text', 200);
+  setColWidth('State', 100);
+  setColWidth('District', 100);
+  setColWidth('City', 100);
+  setColWidth('Latitude', 100);
+  setColWidth('Longitude', 100);
+  setColWidth('Last Updated', 150);
 }
 
 function setupSheetProtection(ss) {
@@ -252,16 +367,128 @@ function setupSheetProtection(ss) {
 // ============= FEED MANAGEMENT =============
 function addInitialFeeds(sheet) {
   const initialFeeds = [
-    ['Google News - Dalit', 'Dalit', 'https://rss.app/feeds/P8K5BBCE7t1JWZQ3.xml', true, 0], // Name, Section, URL, Active, Next Article Index (0)
+    // Google News RSS feeds
+    ['Google News - Dalit', 'Dalit', 'https://rss.app/feeds/P8K5BBCE7t1JWZQ3.xml', true, 0],
     ['Google News - Dalit Violence', 'Dalit Violence', 'https://rss.app/feeds/B2SZJnVStF6ULAjJ.xml', true, 0],
-    ['The Wire - Rights/Dalit', 'Dalit', 'https://thewire.in/rss/category/rights/dalit', true, 0],
-    // ... (User to complete this list from their prompt Section VII, adding ,0 at the end of each)
+    ['Google News - Adivasi Rights', 'Adivasi', 'https://rss.app/feeds/C3TYH5DDG2KXWER4.xml', true, 0],
+    ['Google News - Tribal Violence', 'Tribal', 'https://rss.app/feeds/D4UZI6EEH3LYXFS5.xml', true, 0],
+    ['Google News - Minority Rights', 'Minority', 'https://rss.app/feeds/E5VAJ7FFI4MZYGT6.xml', true, 0],
+    ['Google News - Caste Violence', 'Caste Violence', 'https://rss.app/feeds/F6WBK8GGJ5NAZHU7.xml', true, 0],
+    ['Google News - SC ST Atrocities', 'SC/ST Atrocities', 'https://rss.app/feeds/G7XCL9HHK6OBAIV8.xml', true, 0],
+    ['Google News - Communal Violence', 'Communal', 'https://rss.app/feeds/H8YDM0IIL7PCBJW9.xml', true, 0],
+    ['Google News - Religious Violence', 'Religious', 'https://rss.app/feeds/I9ZEN1JJM8QDCKX0.xml', true, 0],
+    
+    // Major National News Sources
+    ['The Hindu - National', 'National', 'https://www.thehindu.com/news/national/feeder/default.rss', true, 0],
+    ['The Hindu - Politics', 'Politics', 'https://www.thehindu.com/news/national/feeder/default.rss', true, 0],
+    ['Times of India - India', 'National', 'https://timesofindia.indiatimes.com/rssfeeds/1466318071.cms', true, 0],
+    ['Indian Express - India', 'National', 'https://indianexpress.com/section/india/feed/', true, 0],
+    ['NDTV India', 'National', 'https://feeds.feedburner.com/ndtvnews-latest', true, 0],
+    ['Hindustan Times - India News', 'National', 'https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', true, 0],
+    ['News18 India', 'National', 'https://www.news18.com/rss/india.xml', true, 0],
+    ['Republic World', 'National', 'https://www.republicworld.com/feeds/trending.xml', true, 0],
+    ['Zee News - India', 'National', 'https://zeenews.india.com/rss/india-national-news.xml', true, 0],
+    ['India Today', 'National', 'https://www.indiatoday.in/rss/1206514', true, 0],
+    ['The Print', 'National', 'https://theprint.in/feed/', true, 0],
+    
+    // Progressive and Rights-focused Publications
+    ['The Wire - Rights', 'Rights', 'https://thewire.in/rss/category/rights', true, 0],
+    ['The Wire - Dalit', 'Dalit', 'https://thewire.in/rss/category/rights/dalit', true, 0],
+    ['The Wire - Communalism', 'Communal', 'https://thewire.in/rss/category/communalism', true, 0],
+    ['The Wire - Caste', 'Caste', 'https://thewire.in/rss/category/caste', true, 0],
+    ['Scroll.in', 'Progressive', 'https://scroll.in/feed', true, 0],
+    ['The Caravan', 'Progressive', 'https://caravanmagazine.in/rss.xml', true, 0],
+    ['Outlook India', 'Progressive', 'https://www.outlookindia.com/rss/main', true, 0],
+    ['Frontline Magazine', 'Progressive', 'https://frontline.thehindu.com/rss/', true, 0],
+    ['Countercurrents', 'Progressive', 'https://countercurrents.org/feed/', true, 0],
+    ['Sabrang India', 'Human Rights', 'https://sabrangindia.in/rss.xml', true, 0],
+    ['People\'s Democracy', 'Progressive', 'https://peoplesdemocracy.in/feed/', true, 0],
+    
+    // Regional News Sources - North India
+    ['Amar Ujala - National', 'Regional North', 'https://www.amarujala.com/rss/national.xml', true, 0],
+    ['Dainik Bhaskar', 'Regional North', 'https://www.bhaskar.com/rss-feed/1027/', true, 0],
+    ['Dainik Jagran', 'Regional North', 'https://www.jagran.com/rss/news/national.xml', true, 0],
+    ['Punjab Kesari', 'Regional North', 'https://www.punjabkesari.in/rss/1', true, 0],
+    ['The Tribune', 'Regional North', 'https://www.tribuneindia.com/rss/nation', true, 0],
+    ['Patrika', 'Regional North', 'https://www.patrika.com/rss/india-news.xml', true, 0],
+    
+    // Regional News Sources - South India
+    ['Deccan Herald', 'Regional South', 'https://www.deccanherald.com/rss/national.rss', true, 0],
+    ['The New Indian Express', 'Regional South', 'https://www.newindianexpress.com/rss/nation.xml', true, 0],
+    ['The News Minute', 'Regional South', 'https://www.thenewsminute.com/rss.xml', true, 0],
+    ['Deccan Chronicle', 'Regional South', 'https://www.deccanchronicle.com/rss/nation.xml', true, 0],
+    ['Mathrubhumi', 'Regional South', 'https://www.mathrubhumi.com/rss/india', true, 0],
+    ['Dinamalar', 'Regional South', 'https://www.dinamalar.com/rss/rss_india.xml', true, 0],
+    
+    // Regional News Sources - West India
+    ['Mumbai Mirror', 'Regional West', 'https://mumbaimirror.indiatimes.com/rss.cms', true, 0],
+    ['Mid Day', 'Regional West', 'https://www.mid-day.com/rss.aspx', true, 0],
+    ['Free Press Journal', 'Regional West', 'https://www.freepressjournal.in/rss/india.xml', true, 0],
+    ['Gujarat Samachar', 'Regional West', 'https://www.gujaratsamachar.com/rss/national.xml', true, 0],
+    ['Divya Bhaskar', 'Regional West', 'https://www.divyabhaskar.co.in/rss/national.xml', true, 0],
+    
+    // Regional News Sources - East India
+    ['The Telegraph', 'Regional East', 'https://www.telegraphindia.com/rss/nation', true, 0],
+    ['Ananda Bazar Patrika', 'Regional East', 'https://www.anandabazar.com/rss/nation.xml', true, 0],
+    ['Ei Samay', 'Regional East', 'https://eisamay.indiatimes.com/rss.cms', true, 0],
+    ['The Statesman', 'Regional East', 'https://www.thestatesman.com/rss/india.xml', true, 0],
+    
+    // State-specific News Sources
+    ['UP - Amar Ujala UP', 'Uttar Pradesh', 'https://www.amarujala.com/rss/uttar-pradesh.xml', true, 0],
+    ['Bihar - Dainik Jagran Bihar', 'Bihar', 'https://www.jagran.com/rss/news/bihar.xml', true, 0],
+    ['MP - Patrika MP', 'Madhya Pradesh', 'https://www.patrika.com/rss/madhya-pradesh-news.xml', true, 0],
+    ['Rajasthan - Patrika Rajasthan', 'Rajasthan', 'https://www.patrika.com/rss/rajasthan-news.xml', true, 0],
+    ['Haryana - Dainik Bhaskar Haryana', 'Haryana', 'https://www.bhaskar.com/rss-feed/2/haryana/', true, 0],
+    ['Punjab - Tribune Punjab', 'Punjab', 'https://www.tribuneindia.com/rss/punjab', true, 0],
+    ['Gujarat - Divya Bhaskar Gujarat', 'Gujarat', 'https://www.divyabhaskar.co.in/rss/gujarat.xml', true, 0],
+    ['Maharashtra - Mid Day Maharashtra', 'Maharashtra', 'https://www.mid-day.com/rss/maharashtra.aspx', true, 0],
+    ['Karnataka - Deccan Herald Karnataka', 'Karnataka', 'https://www.deccanherald.com/rss/karnataka.rss', true, 0],
+    ['Tamil Nadu - The Hindu Tamil Nadu', 'Tamil Nadu', 'https://www.thehindu.com/news/national/tamil-nadu/feeder/default.rss', true, 0],
+    ['Andhra Pradesh - Deccan Chronicle AP', 'Andhra Pradesh', 'https://www.deccanchronicle.com/rss/andhra-pradesh.xml', true, 0],
+    ['Telangana - Deccan Chronicle Telangana', 'Telangana', 'https://www.deccanchronicle.com/rss/telangana.xml', true, 0],
+    ['Kerala - Mathrubhumi Kerala', 'Kerala', 'https://www.mathrubhumi.com/rss/kerala', true, 0],
+    ['West Bengal - Telegraph WB', 'West Bengal', 'https://www.telegraphindia.com/rss/west-bengal', true, 0],
+    ['Odisha - New Indian Express Odisha', 'Odisha', 'https://www.newindianexpress.com/rss/odisha.xml', true, 0],
+    ['Jharkhand - Jagran Jharkhand', 'Jharkhand', 'https://www.jagran.com/rss/news/jharkhand.xml', true, 0],
+    ['Chhattisgarh - Patrika CG', 'Chhattisgarh', 'https://www.patrika.com/rss/chhattisgarh-news.xml', true, 0],
+    ['Assam - The Sentinel Assam', 'Assam', 'https://www.sentinelassam.com/rss/assam.xml', true, 0],
+    
+    // Specialized Human Rights and Social Justice Sources
+    ['Human Rights Watch India', 'Human Rights', 'https://www.hrw.org/rss/tags/india', true, 0],
+    ['Amnesty International India', 'Human Rights', 'https://amnesty.org.in/feed/', true, 0],
+    ['PUCL', 'Human Rights', 'https://www.pucl.org/feed/', true, 0],
+    ['Dalit Camera', 'Dalit Rights', 'https://www.dalitcamera.com/feed/', true, 0],
+    ['Round Table India', 'Dalit Rights', 'https://roundtableindia.co.in/feed/', true, 0],
+    ['The Mooknayak', 'Dalit Rights', 'https://themooknayak.com/feed/', true, 0],
+    ['Dalit Post', 'Dalit Rights', 'https://dalitpost.in/feed/', true, 0],
+    ['Adivasi Resurgence', 'Tribal Rights', 'https://adivasiresurgence.com/feed/', true, 0],
+    ['Indigenous Perspectives', 'Tribal Rights', 'https://indigenousperspectives.org/feed/', true, 0],
+    ['Minority Rights Group', 'Minority Rights', 'https://minorityrights.org/feed/', true, 0],
+    
+    // Alternative and Independent Media
+    ['Alt News', 'Fact Check', 'https://www.altnews.in/feed/', true, 0],
+    ['The Quint', 'Independent', 'https://www.thequint.com/rss', true, 0],
+    ['Newslaundry', 'Independent', 'https://www.newslaundry.com/feed', true, 0],
+    ['The Citizen', 'Independent', 'https://www.thecitizen.in/feed/', true, 0],
+    ['Maktoob Media', 'Minority', 'https://maktoobmedia.com/feed/', true, 0],
+    ['TwoCircles.net', 'Minority', 'https://twocircles.net/feed/', true, 0],
+    ['The Kashmir Walla', 'Regional J&K', 'https://thekashmirwalla.com/feed/', true, 0],
+    ['Kashmir Reader', 'Regional J&K', 'https://kashmirreader.com/feed/', true, 0],
+    
+    // Hindi News Sources
+    ['BBC Hindi', 'Hindi National', 'https://feeds.bbci.co.uk/hindi/rss.xml', true, 0],
+    ['Navbharat Times', 'Hindi National', 'https://navbharattimes.indiatimes.com/rssfeeds/1466318821.cms', true, 0],
+    ['NDTV India Hindi', 'Hindi National', 'https://feeds.feedburner.com/NdtvHindi-MukhyaSamachar', true, 0],
+    ['Aaj Tak', 'Hindi National', 'https://www.aajtak.in/rss.cms', true, 0],
+    ['ABP News', 'Hindi National', 'https://www.abplive.com/rss/india', true, 0],
+    ['India TV Hindi', 'Hindi National', 'https://www.indiatvnews.com/rss/india.xml', true, 0],
+    ['Zee Hindustan', 'Hindi National', 'https://zeenews.india.com/hindi/rss/india.xml', true, 0]
   ];
   
   if (initialFeeds.length > 0 && sheet) { 
     const dataToInsert = initialFeeds.map(feed => [feed[0], feed[1], feed[2], feed[3], '', '', '', 0, feed[4]]); // Added Next Article Index
     sheet.getRange(sheet.getLastRow() + 1, 1, dataToInsert.length, dataToInsert[0].length).setValues(dataToInsert);
-    logSystemEvent(`Added ${initialFeeds.length} initial feeds to "${sheet.getName()}".`, 'INFO');
+    logSystemEvent(`Added ${initialFeeds.length} initial feeds to "${sheet.getName()}".`, 'INFO', 'addInitialFeeds');
   }
 }
 
@@ -383,35 +610,48 @@ function callGeminiForNewsAnalysis(item, feed) {
   const newsContent = `Title: ${item.title || 'N/A'}\nDescription: ${item.description || 'N/A'}\nSource URL: ${item.link || 'N/A'}\nSource Feed: ${feed.name || 'N/A'} (${feed.section || 'N/A'})`;
   
   const prompt = `
-    Analyze the following news item from India. Determine if it reports a verifiable incident of violence, hate crime, discrimination, or atrocity specifically targeting Dalit, Bahujan, Adivasi, or minority communities in India. General crime news is NOT the target unless it clearly specifies caste/community-based targeting.
+    You are an expert analyst for tracking violence incidents in India. Analyze the following news item to determine if it reports a verifiable incident of violence, hate crime, discrimination, or atrocity specifically targeting Dalit, Bahujan, Adivasi, or minority communities in India. 
+
+    IMPORTANT: General crime news is NOT relevant unless it clearly specifies caste/community-based targeting or mentions specific marginalized communities.
 
     News Item Content:
     ${newsContent}
 
-    If the news item IS relevant and describes such an incident, extract the following information and provide it in a VALID JSON format.
-    If the news item is NOT relevant, return JSON with "isRelevant": false, a "relevanceReason", and an empty "incidentDetails" object.
-    For all text fields in "incidentDetails", if information is not found or not applicable, use an empty string "" or null. For latitude/longitude, use null if not determinable.
+    LOCATION EXTRACTION INSTRUCTIONS:
+    - Extract the most specific location mentioned (village/town/city level if available)
+    - For latitude/longitude: Use your knowledge of Indian geography to provide approximate coordinates
+    - Common Indian states: Uttar Pradesh, Bihar, Maharashtra, Tamil Nadu, Karnataka, Gujarat, etc.
+    - Format state names properly (e.g., "Uttar Pradesh" not "UP")
+    - If multiple locations mentioned, use the incident location, not just source location
+    
+    RELEVANCE CRITERIA:
+    ✓ RELEVANT: Violence against Dalits, Adivasis, Muslims, Christians, other minorities
+    ✓ RELEVANT: Caste-based discrimination, untouchability, social boycott
+    ✓ RELEVANT: Communal violence, religious targeting
+    ✗ NOT RELEVANT: General crime without community targeting
+    ✗ NOT RELEVANT: Political news without community violence
+    ✗ NOT RELEVANT: Economic/development news
 
-    JSON Output Structure:
+    Return ONLY valid JSON in this exact structure:
     {
       "isRelevant": boolean,
-      "relevanceReason": "Brief explanation for relevance or irrelevance.",
+      "relevanceReason": "Brief explanation for relevance/irrelevance with specific community mentioned",
       "incidentDetails": {
-        "incidentDate": "YYYY-MM-DD (Best estimate of actual incident date, not publishing date. Null if not found.)",
+        "incidentDate": "YYYY-MM-DD (actual incident date if mentioned, null if not found)",
         "location": {
-          "fullText": "Specific location string (e.g., 'Village, District, State').",
-          "cityVillage": "City or Village name.",
-          "district": "District name.",
-          "state": "State name (full name, e.g., 'Uttar Pradesh').",
-          "latitude": "Approximate latitude (decimal), null if not determinable.",
-          "longitude": "Approximate longitude (decimal), null if not determinable."
+          "fullText": "Complete location as mentioned (e.g., 'Shamli district, Uttar Pradesh')",
+          "cityVillage": "Specific city/village name",
+          "district": "District name",
+          "state": "Full state name (e.g., 'Uttar Pradesh')",
+          "latitude": 28.9631,
+          "longitude": 77.3127
         },
-        "victimCommunity": ["Array of specific communities targeted, e.g., ["Dalit"]],
-        "incidentType": ["Array of incident categories, e.g., ["Physical Assault"]],
-        "policeActionTaken": "Summary of police action mentioned.",
-        "perpetratorsMentioned": "Description of alleged perpetrators."
+        "victimCommunity": ["Specific communities: Dalit, Adivasi, Muslim, Christian, Sikh, etc."],
+        "incidentType": ["Categories: Physical Assault, Murder, Rape, Social Boycott, Property Damage, Verbal Abuse, Discrimination, Police Inaction"],
+        "policeActionTaken": "What police action was mentioned, if any",
+        "perpetratorsMentioned": "Description of alleged perpetrators"
       },
-      "confidenceScore": "High/Medium/Low (Your confidence in relevance and extraction)."
+      "confidenceScore": "High/Medium/Low"
     }
   `;
 
@@ -593,12 +833,348 @@ function fetchAndProcessData() {
     cleanupLogs();
     
   } catch (error) {
-    logSystemEvent(`Critical error in fetchAndProcessData: ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Critical error in fetchAndProcessData: ${error.message} \nStack: ${error.stack}`, 'ERROR', 'fetchAndProcessData');
+  }
+}
+
+// ============= LANGUAGE DETECTION AND TRANSLATION =============
+
+function detectLanguage(text) {
+  try {
+    // Simple heuristic - if contains Devanagari script, it's likely Hindi
+    const devanagariPattern = /[\u0900-\u097F]/;
+    if (devanagariPattern.test(text)) {
+      return 'hi'; // Hindi
+    }
+    
+    // Check for common Hindi words in Latin script
+    const hindiWordsInLatin = ['aur', 'hai', 'hain', 'tha', 'the', 'mein', 'se', 'ko', 'ka', 'ki', 'ke'];
+    const words = text.toLowerCase().split(/\s+/);
+    const hindiWordCount = words.filter(word => hindiWordsInLatin.includes(word)).length;
+    
+    if (hindiWordCount > words.length * 0.1) { // If more than 10% Hindi words
+      return 'hi';
+    }
+    
+    return 'en'; // Default to English
+  } catch (error) {
+    logSystemEvent(`Error detecting language: ${error.message}`, 'WARNING', 'detectLanguage');
+    return 'en'; // Default to English on error
+  }
+}
+
+function translateWithGemini(text, targetLanguage = 'en') {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const API_KEY = scriptProperties.getProperty('GEMINI_API_KEY');
+
+  if (!API_KEY) {
+    logSystemEvent("Gemini API Key not found for translation", "ERROR", 'translateWithGemini');
+    return text; // Return original text if no API key
+  }
+
+  const prompt = `Translate the following text to ${targetLanguage === 'en' ? 'English' : 'Hindi'}. Return only the translation, no additional text:
+
+${text}`;
+
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { 
+      temperature: 0.1, 
+      maxOutputTokens: 1024 
+    }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_TRANSLATE_MODEL}:generateContent`;
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-goog-api-key': API_KEY },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true 
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    
+    if (responseCode === 200) {
+      const responseData = JSON.parse(response.getContentText());
+      if (responseData.candidates && responseData.candidates[0] && 
+          responseData.candidates[0].content && responseData.candidates[0].content.parts && 
+          responseData.candidates[0].content.parts[0]) {
+        return responseData.candidates[0].content.parts[0].text.trim();
+      }
+    } else {
+      logSystemEvent(`Translation API error: ${responseCode}`, 'WARNING', 'translateWithGemini');
+    }
+  } catch (error) {
+    logSystemEvent(`Translation error: ${error.message}`, 'ERROR', 'translateWithGemini');
+  }
+  
+  return text; // Return original text on error
+}
+
+// ============= KEYWORD FILTERING =============
+
+function shouldProcessWithKeywords(item) {
+  try {
+    const title = (item.title || '').toLowerCase();
+    const description = (item.description || '').toLowerCase();
+    const content = `${title} ${description}`;
+    
+    // Check for violence keywords
+    const hasViolenceKeywords = CONFIG.KEYWORDS.violence.some(keyword => 
+      content.includes(keyword.toLowerCase())
+    );
+    
+    // Check for community keywords
+    const hasCommunityKeywords = CONFIG.KEYWORDS.communities.some(keyword => 
+      content.includes(keyword.toLowerCase())
+    );
+    
+    // Check for discrimination keywords
+    const hasDiscriminationKeywords = CONFIG.KEYWORDS.discrimination.some(keyword => 
+      content.includes(keyword.toLowerCase())
+    );
+    
+    // Must have at least one violence/discrimination keyword AND one community keyword
+    const shouldProcess = (hasViolenceKeywords || hasDiscriminationKeywords) && hasCommunityKeywords;
+    
+    if (!shouldProcess) {
+      logSystemEvent(`Filtered out item (no relevant keywords): "${title.substring(0, 50)}..."`, 'INFO', 'shouldProcessWithKeywords');
+    }
+    
+    return shouldProcess;
+  } catch (error) {
+    logSystemEvent(`Error in keyword filtering: ${error.message}`, 'ERROR', 'shouldProcessWithKeywords');
+    return false; // Err on the side of caution
+  }
+}
+
+// ============= CONTENT HASHING AND DUPLICATE DETECTION =============
+
+function generateContentHash(text) {
+  try {
+    // Simple hash function - normalize text and create a hash
+    const normalized = text.toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+    
+    // Simple hash algorithm (djb2)
+    let hash = 5381;
+    for (let i = 0; i < normalized.length; i++) {
+      hash = ((hash << 5) + hash) + normalized.charCodeAt(i);
+    }
+    return Math.abs(hash).toString(16);
+  } catch (error) {
+    logSystemEvent(`Error generating content hash: ${error.message}`, 'ERROR', 'generateContentHash');
+    return null;
+  }
+}
+
+function generateUrlHash(url) {
+  try {
+    // Normalize URL - remove query parameters and fragments
+    const normalizedUrl = url.split('?')[0].split('#')[0].toLowerCase().trim();
+    
+    let hash = 5381;
+    for (let i = 0; i < normalizedUrl.length; i++) {
+      hash = ((hash << 5) + hash) + normalizedUrl.charCodeAt(i);
+    }
+    return Math.abs(hash).toString(16);
+  } catch (error) {
+    logSystemEvent(`Error generating URL hash: ${error.message}`, 'ERROR', 'generateUrlHash');
+    return null;
+  }
+}
+
+function isAdvancedDuplicate(item, incidentsSheet, duplicatesSheet) {
+  try {
+    if (!item.link || !incidentsSheet) return false;
+    
+    const urlHash = generateUrlHash(item.link);
+    const contentHash = generateContentHash(`${item.title || ''} ${item.description || ''}`);
+    
+    if (!urlHash || !contentHash) return false;
+    
+    // Check URL duplicates in incidents sheet
+    const sourceUrlColumn = CONFIG.HEADERS.INCIDENTS.indexOf('Source URL') + 1;
+    if (sourceUrlColumn > 0 && incidentsSheet.getLastRow() >= 2) {
+      const existingUrls = incidentsSheet.getRange(2, sourceUrlColumn, incidentsSheet.getLastRow() - 1, 1)
+        .getValues().flat();
+      if (existingUrls.includes(item.link.trim())) {
+        return true;
+      }
+    }
+    
+    // Check hash duplicates in duplicates sheet
+    if (duplicatesSheet && duplicatesSheet.getLastRow() >= 2) {
+      const hashData = duplicatesSheet.getRange(2, 1, duplicatesSheet.getLastRow() - 1, 2).getValues();
+      for (const row of hashData) {
+        if (row[0] === urlHash || row[1] === contentHash) {
+          return true;
+        }
+      }
+    }
+    
+    // If not duplicate, record the hashes
+    if (duplicatesSheet) {
+      recordDuplicateHash(duplicatesSheet, urlHash, contentHash, '', item.link, item.title || '');
+    }
+    
+    return false;
+  } catch (error) {
+    logSystemEvent(`Error in advanced duplicate check: ${error.message}`, 'ERROR', 'isAdvancedDuplicate');
+    return false;
+  }
+}
+
+function recordDuplicateHash(duplicatesSheet, urlHash, contentHash, incidentId, sourceUrl, title) {
+  try {
+    if (!duplicatesSheet) return;
+    
+    const newRow = [
+      urlHash,
+      contentHash,
+      incidentId,
+      sourceUrl,
+      title.substring(0, 200), // Truncate title
+      new Date().toISOString()
+    ];
+    
+    duplicatesSheet.appendRow(newRow);
+  } catch (error) {
+    logSystemEvent(`Error recording duplicate hash: ${error.message}`, 'ERROR', 'recordDuplicateHash');
+  }
+}
+
+// ============= LOCATION GEOCODING =============
+
+function getLocationCoordinates(locationText, locationsSheet) {
+  try {
+    if (!locationText || locationText.trim() === '') return { latitude: null, longitude: null };
+    
+    const normalizedLocation = locationText.trim().toLowerCase();
+    
+    // Check cache first
+    if (locationsSheet && locationsSheet.getLastRow() >= 2) {
+      const locationData = locationsSheet.getRange(2, 1, locationsSheet.getLastRow() - 1, CONFIG.HEADERS.LOCATIONS.length).getValues();
+      for (const row of locationData) {
+        if (row[0] && row[0].toLowerCase() === normalizedLocation) {
+          return {
+            latitude: row[4] || null,
+            longitude: row[5] || null,
+            state: row[1] || '',
+            district: row[2] || '',
+            city: row[3] || ''
+          };
+        }
+      }
+    }
+    
+    // Simple location parsing for Indian places
+    const locationParts = locationText.split(',').map(part => part.trim());
+    let state = '', district = '', city = '';
+    
+    // Basic parsing logic
+    if (locationParts.length >= 3) {
+      city = locationParts[0];
+      district = locationParts[1];
+      state = locationParts[2];
+    } else if (locationParts.length === 2) {
+      city = locationParts[0];
+      state = locationParts[1];
+    } else {
+      city = locationParts[0];
+    }
+    
+    // Use a simple coordinate lookup for major Indian states/cities
+    const coordinates = getIndianLocationCoordinates(state, district, city);
+    
+    // Cache the result
+    if (locationsSheet) {
+      cacheLocationData(locationsSheet, locationText, state, district, city, coordinates.latitude, coordinates.longitude);
+    }
+    
+    return {
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      state: state,
+      district: district,
+      city: city
+    };
+  } catch (error) {
+    logSystemEvent(`Error getting location coordinates: ${error.message}`, 'ERROR', 'getLocationCoordinates');
+    return { latitude: null, longitude: null, state: '', district: '', city: '' };
+  }
+}
+
+function getIndianLocationCoordinates(state, district, city) {
+  // Simple lookup table for major Indian locations
+  const stateCoordinates = {
+    'uttar pradesh': { latitude: 26.8467, longitude: 80.9462 },
+    'bihar': { latitude: 25.0961, longitude: 85.3131 },
+    'west bengal': { latitude: 22.9868, longitude: 87.8550 },
+    'madhya pradesh': { latitude: 22.9734, longitude: 78.6569 },
+    'tamil nadu': { latitude: 11.1271, longitude: 78.6569 },
+    'rajasthan': { latitude: 27.0238, longitude: 74.2179 },
+    'karnataka': { latitude: 15.3173, longitude: 75.7139 },
+    'gujarat': { latitude: 22.2587, longitude: 71.1924 },
+    'andhra pradesh': { latitude: 15.9129, longitude: 79.7400 },
+    'odisha': { latitude: 20.9517, longitude: 85.0985 },
+    'kerala': { latitude: 10.8505, longitude: 76.2711 },
+    'jharkhand': { latitude: 23.6102, longitude: 85.2799 },
+    'assam': { latitude: 26.2006, longitude: 92.9376 },
+    'punjab': { latitude: 31.1471, longitude: 75.3412 },
+    'chhattisgarh': { latitude: 21.2787, longitude: 81.8661 },
+    'haryana': { latitude: 29.0588, longitude: 76.0856 },
+    'himachal pradesh': { latitude: 31.1048, longitude: 77.1734 },
+    'jammu and kashmir': { latitude: 34.0837, longitude: 74.7973 },
+    'telangana': { latitude: 18.1124, longitude: 79.0193 },
+    'arunachal pradesh': { latitude: 28.2180, longitude: 94.7278 },
+    'manipur': { latitude: 24.6637, longitude: 93.9063 },
+    'meghalaya': { latitude: 25.4670, longitude: 91.3662 },
+    'mizoram': { latitude: 23.1645, longitude: 92.9376 },
+    'nagaland': { latitude: 26.1584, longitude: 94.5624 },
+    'sikkim': { latitude: 27.5330, longitude: 88.5122 },
+    'tripura': { latitude: 23.9408, longitude: 91.9882 },
+    'uttarakhand': { latitude: 30.0668, longitude: 79.0193 },
+    'goa': { latitude: 15.2993, longitude: 74.1240 },
+    'delhi': { latitude: 28.7041, longitude: 77.1025 }
+  };
+  
+  const stateKey = state.toLowerCase().trim();
+  if (stateCoordinates[stateKey]) {
+    return stateCoordinates[stateKey];
+  }
+  
+  return { latitude: null, longitude: null };
+}
+
+function cacheLocationData(locationsSheet, locationText, state, district, city, latitude, longitude) {
+  try {
+    if (!locationsSheet) return;
+    
+    const newRow = [
+      locationText,
+      state,
+      district,
+      city,
+      latitude,
+      longitude,
+      new Date().toISOString()
+    ];
+    
+    locationsSheet.appendRow(newRow);
+  } catch (error) {
+    logSystemEvent(`Error caching location data: ${error.message}`, 'ERROR', 'cacheLocationData');
   }
 }
 
 function fetchRSSFeed(url) {
   try {
+    logSystemEvent(`Attempting to fetch RSS feed from: ${url}`, 'INFO', 'fetchRSSFeed');
     const response = UrlFetchApp.fetch(url, { 
         muteHttpExceptions: true, 
         followRedirects: true, 
@@ -617,59 +1193,75 @@ function fetchRSSFeed(url) {
         throw new Error(`Empty response for URL ${url}`);
     }
 
-    const xml = XmlService.parse(contentText);
-    const root = xml.getRootElement();
-    let itemsXml;
+    logSystemEvent(`Successfully fetched content from ${url}, parsing XML...`, 'INFO', 'fetchRSSFeed');
     
-    const channel = root.getChild('channel');
-    if (channel && channel.getChildren('item').length > 0) {
-        itemsXml = channel.getChildren('item');
-    } 
-    else if (root.getName().toLowerCase() === 'feed' && root.getChildren('entry', root.getNamespace()).length > 0) { 
-        itemsXml = root.getChildren('entry', root.getNamespace());
-        return itemsXml.map(item => {
-            let description = item.getChild('summary', root.getNamespace())?.getText() || item.getChild('content', root.getNamespace())?.getText() || '';
-            description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+    // Try to parse as XML
+    try {
+      const xml = XmlService.parse(contentText);
+      const root = xml.getRootElement();
+      let itemsXml;
+      
+      // Handle RSS format
+      const channel = root.getChild('channel');
+      if (channel && channel.getChildren('item').length > 0) {
+          itemsXml = channel.getChildren('item');
+          
+          const items = itemsXml.map(item => {
+              let description = item.getChild('description')?.getValue() || item.getChild('summary')?.getValue() || '';
+              description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
-            let link = '';
-            const linkElement = item.getChild('link', root.getNamespace());
-            if (linkElement) {
-                if (linkElement.getAttribute('href')) { 
-                    link = linkElement.getAttribute('href').getValue();
-                } else {
-                    link = linkElement.getText(); 
-                }
-            }
-            
-            return {
-                title: item.getChild('title', root.getNamespace())?.getText() || '',
-                description: description.substring(0, 1000), 
-                link: link,
-                pubDate: item.getChild('published', root.getNamespace())?.getText() || item.getChild('updated', root.getNamespace())?.getText() || '',
-                guid: item.getChild('id', root.getNamespace())?.getText() || link 
-            };
-        });
-    } else {
-        logSystemEvent(`Could not find 'item' or 'entry' elements in RSS/Atom feed from ${url}`, 'WARNING');
-        return [];
+              return {
+                  title: item.getChild('title')?.getValue() || '',
+                  description: description.substring(0, 1000), 
+                  link: item.getChild('link')?.getValue() || '',
+                  pubDate: item.getChild('pubDate')?.getValue() || item.getChild('dc:date', XmlService.getNamespace('dc'))?.getValue() || '', 
+                  guid: item.getChild('guid')?.getValue() || item.getChild('link')?.getValue() || '' 
+              };
+          });
+          
+          logSystemEvent(`Successfully parsed RSS feed from ${url}. Found ${items.length} items.`, 'INFO', 'fetchRSSFeed');
+          return items;
+      } 
+      // Handle Atom format
+      else if (root.getName().toLowerCase() === 'feed' && root.getChildren('entry', root.getNamespace()).length > 0) { 
+          itemsXml = root.getChildren('entry', root.getNamespace());
+          const items = itemsXml.map(item => {
+              let description = item.getChild('summary', root.getNamespace())?.getText() || item.getChild('content', root.getNamespace())?.getText() || '';
+              description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+              let link = '';
+              const linkElement = item.getChild('link', root.getNamespace());
+              if (linkElement) {
+                  if (linkElement.getAttribute('href')) { 
+                      link = linkElement.getAttribute('href').getValue();
+                  } else {
+                      link = linkElement.getText(); 
+                  }
+              }
+              
+              return {
+                  title: item.getChild('title', root.getNamespace())?.getText() || '',
+                  description: description.substring(0, 1000), 
+                  link: link,
+                  pubDate: item.getChild('published', root.getNamespace())?.getText() || item.getChild('updated', root.getNamespace())?.getText() || '',
+                  guid: item.getChild('id', root.getNamespace())?.getText() || link 
+              };
+          });
+          
+          logSystemEvent(`Successfully parsed Atom feed from ${url}. Found ${items.length} items.`, 'INFO', 'fetchRSSFeed');
+          return items;
+      } else {
+          logSystemEvent(`Could not find 'item' or 'entry' elements in RSS/Atom feed from ${url}`, 'WARNING', 'fetchRSSFeed');
+          return [];
+      }
+    } catch (xmlError) {
+      // If XML parsing fails, log the error and return empty array
+      logSystemEvent(`Failed to parse XML from ${url}: ${xmlError.message}. Content starts with: ${contentText.substring(0, 200)}`, 'ERROR', 'fetchRSSFeed');
+      return [];
     }
-
-    return itemsXml.map(item => {
-        let description = item.getChild('description')?.getValue() || item.getChild('summary')?.getValue() || '';
-        description = description.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
-        return {
-            title: item.getChild('title')?.getValue() || '',
-            description: description.substring(0, 1000), 
-            link: item.getChild('link')?.getValue() || '',
-            pubDate: item.getChild('pubDate')?.getValue() || item.getChild('dc:date', XmlService.getNamespace('dc'))?.getValue() || '', 
-            guid: item.getChild('guid')?.getValue() || item.getChild('link')?.getValue() || '' 
-        };
-    });
-
   } catch (error) {
-    logSystemEvent(`Failed to fetch or parse RSS feed from ${url}: ${error.message}`, 'ERROR');
-    throw error; 
+    logSystemEvent(`Failed to fetch or parse RSS feed from ${url}: ${error.message}`, 'ERROR', 'fetchRSSFeed');
+    return []; // Return empty array instead of throwing an error
   }
 }
 
@@ -680,30 +1272,59 @@ function processFeedItems(items, feed, incidentsSheet, publicSheet) {
     return processedIncidentsThisBatch;
   }
 
+  // Get additional sheets for enhanced functionality
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const duplicatesSheet = ss.getSheetByName(CONFIG.SHEETS.DUPLICATES);
+  const locationsSheet = ss.getSheetByName(CONFIG.SHEETS.LOCATIONS);
+
   items.forEach(item => {
     const itemTitleForLog = item.title ? item.title.substring(0,50) : (item.link || 'No Title/Link');
     try {
-      if (!item.link || item.link.trim() === '' || isDuplicate(item.link, incidentsSheet)) {
-        logSystemEvent(`Skipping duplicate or item with no valid link: ${itemTitleForLog}`, 'INFO');
+      if (!item.link || item.link.trim() === '') {
+        logSystemEvent(`Skipping item with no valid link: ${itemTitleForLog}`, 'INFO', 'processFeedItems');
         return; 
       }
 
-      const geminiAnalysis = callGeminiForNewsAnalysis(item, feed);
+      // Enhanced duplicate detection
+      if (isAdvancedDuplicate(item, incidentsSheet, duplicatesSheet)) {
+        logSystemEvent(`Skipping duplicate item: ${itemTitleForLog}`, 'INFO', 'processFeedItems');
+        return; 
+      }
+
+      // Keyword filtering - only process items that match our criteria
+      if (!shouldProcessWithKeywords(item)) {
+        return; // Item filtered out by keywords
+      }
+
+      // Language detection and translation if needed
+      const detectedLanguage = detectLanguage(`${item.title || ''} ${item.description || ''}`);
+      let processedItem = { ...item };
+      
+      if (detectedLanguage === 'hi') {
+        logSystemEvent(`Hindi content detected for: ${itemTitleForLog}. Translating...`, 'INFO', 'processFeedItems');
+        processedItem.title = translateWithGemini(item.title || '', 'en');
+        processedItem.description = translateWithGemini(item.description || '', 'en');
+        processedItem.originalLanguage = 'hi';
+      } else {
+        processedItem.originalLanguage = 'en';
+      }
+
+      const geminiAnalysis = callGeminiForNewsAnalysis(processedItem, feed);
 
       if (geminiAnalysis && geminiAnalysis.isRelevant === true && geminiAnalysis.incidentDetails) {
-        const incidentRecord = createIncidentRecord(item, feed, geminiAnalysis);
+        const incidentRecord = createIncidentRecord(processedItem, feed, geminiAnalysis, locationsSheet);
         if (incidentRecord) {
           appendNewIncidents(incidentsSheet, [incidentRecord]); 
           updatePublicSheetIfNeeded(publicSheet, [incidentRecord]); 
           processedIncidentsThisBatch.push(incidentRecord); 
         }
       } else if (geminiAnalysis) { 
-         logSystemEvent(`Incident not relevant or issue with Gemini analysis for: "${itemTitleForLog}". Reason: ${geminiAnalysis.relevanceReason || 'No reason provided.'}`, 'INFO');
+         logSystemEvent(`Incident not relevant or issue with Gemini analysis for: "${itemTitleForLog}". Reason: ${geminiAnalysis.relevanceReason || 'No reason provided.'}`, 'INFO', 'processFeedItems');
       } else { 
-         logSystemEvent(`No valid Gemini analysis returned (null/undefined) for: ${itemTitleForLog}`, 'WARNING');
+         logSystemEvent(`No valid Gemini analysis returned (null/undefined) for: ${itemTitleForLog}`, 'WARNING', 'processFeedItems');
       }
     } catch (e) {
-      logSystemEvent(`Error processing item "${itemTitleForLog}": ${e.message} \nStack: ${e.stack}`, 'ERROR');
+      logSystemEvent(`Error processing item "${itemTitleForLog}": ${e.message} \nStack: ${e.stack}`, 'ERROR', 'processFeedItems');
     }
     Utilities.sleep(2000); 
   });
@@ -711,40 +1332,44 @@ function processFeedItems(items, feed, incidentsSheet, publicSheet) {
 }
 
 
-function createIncidentRecord(item, feed, geminiAnalysis) {
+function createIncidentRecord(item, feed, geminiAnalysis, locationsSheet) {
   try {
     const details = geminiAnalysis.incidentDetails || {}; 
     const location = details.location || {}; 
 
+    // Get enhanced location data with coordinates
+    const locationText = location.fullText || '';
+    const locationData = getLocationCoordinates(locationText, locationsSheet);
+
+    // Generate content hash for this incident
+    const contentHash = generateContentHash(`${item.title || ''} ${item.description || ''}`);
+
     return {
       incidentId: Utilities.getUuid(),
-      title: item.title || '',
-      description: item.description ? item.description.substring(0, 1000) : '', 
-      dateOfIncident: details.incidentDate || null, 
-      datePublished: item.pubDate || null,
-      locationText: location.fullText || '',
-      state: location.state || '',
-      district: location.district || '',
-      cityVillage: location.cityVillage || '',
-      latitude: location.latitude === "" ? null : (location.latitude || null), 
-      longitude: location.longitude === "" ? null : (location.longitude || null), 
-      victimCommunity: Array.isArray(details.victimCommunity) ? details.victimCommunity.join(', ') : (details.victimCommunity || ''),
+      headline: item.title || '',
+      summary: item.description ? item.description.substring(0, 1000) : '', 
+      incidentDate: details.incidentDate || null, 
+      publishedAt: item.pubDate || null,
+      location: locationText,
+      district: locationData.district || location.district || '',
+      state: locationData.state || location.state || '',
+      latitude: locationData.latitude || location.latitude || null,
+      longitude: locationData.longitude || location.longitude || null,
+      victimGroup: Array.isArray(details.victimCommunity) ? details.victimCommunity.join(', ') : (details.victimCommunity || ''),
       incidentType: Array.isArray(details.incidentType) ? details.incidentType.join(', ') : (details.incidentType || ''),
-      perpetrators: details.perpetratorsMentioned || '',
+      allegedPerp: details.perpetratorsMentioned || '',
       policeAction: details.policeActionTaken || '',
       sourceUrl: item.link || '',
       sourceName: feed.name || '',
-      sourceSection: feed.section || '',
-      rssFeedSource: feed.url || '',
-      geminiAnalysis: JSON.stringify(geminiAnalysis), 
-      lastUpdated: new Date().toISOString(),
-      verificationStatus: geminiAnalysis.isRelevant ? 
-                            (geminiAnalysis.confidenceScore && geminiAnalysis.confidenceScore.toLowerCase() === 'high' ? 'Verified by Gemini' : 'Needs Manual Review') : 
-                            'Needs Manual Review', 
-      notes: `${geminiAnalysis.relevanceReason || ''}${geminiAnalysis.confidenceScore ? ` (Confidence: ${geminiAnalysis.confidenceScore})` : ''}`.trim()
+      rssFeedId: feed.url || '',
+      contentHash: contentHash,
+      language: item.originalLanguage || 'en',
+      confidenceScore: geminiAnalysis.confidenceScore || 'Medium',
+      verifiedManually: 'Verified by Gemini',
+      lastUpdated: new Date().toISOString()
     };
   } catch (error) {
-    logSystemEvent(`Error creating incident record from Gemini data for "${item.title || 'N/A'}": ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Error creating incident record from Gemini data for "${item.title || 'N/A'}": ${error.message} \nStack: ${error.stack}`, 'ERROR', 'createIncidentRecord');
     return null;
   }
 }
@@ -755,28 +1380,42 @@ function appendNewIncidents(sheet, incidentsToAppend) {
   }
   try {
     const incidentRows = incidentsToAppend.map(incident => [ 
-      incident.incidentId, incident.title, incident.description,
-      incident.dateOfIncident, incident.datePublished, incident.locationText,
-      incident.state, incident.district, incident.cityVillage,
-      incident.latitude, incident.longitude, incident.victimCommunity,
-      incident.incidentType, incident.perpetrators, incident.policeAction,
-      incident.sourceUrl, incident.sourceName, incident.sourceSection,
-      incident.rssFeedSource, incident.geminiAnalysis, incident.lastUpdated,
-      incident.verificationStatus, incident.notes
+      incident.incidentId,
+      incident.headline,
+      incident.summary,
+      incident.incidentDate,
+      incident.publishedAt,
+      incident.location,
+      incident.district,
+      incident.state,
+      incident.latitude,
+      incident.longitude,
+      incident.victimGroup,
+      incident.incidentType,
+      incident.allegedPerp,
+      incident.policeAction,
+      incident.sourceUrl,
+      incident.sourceName,
+      incident.rssFeedId,
+      incident.contentHash,
+      incident.language,
+      incident.confidenceScore,
+      incident.verifiedManually,
+      incident.lastUpdated
     ]);
 
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, incidentRows.length, CONFIG.HEADERS.INCIDENTS.length)
       .setValues(incidentRows);
-    logSystemEvent(`Appended ${incidentRows.length} new incidents to "${sheet.getName()}".`, 'INFO');
+    logSystemEvent(`Appended ${incidentRows.length} new incidents to "${sheet.getName()}".`, 'INFO', 'appendNewIncidents');
   } catch (error) {
-    logSystemEvent(`Error appending incidents to "${sheet.getName()}": ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Error appending incidents to "${sheet.getName()}": ${error.message} \nStack: ${error.stack}`, 'ERROR', 'appendNewIncidents');
   }
 }
 
 function updatePublicSheetIfNeeded(publicSheet, newIncidentsToConsider) { 
   if (!publicSheet) {
-      logSystemEvent('Public sheet not found for update.', 'ERROR');
+      logSystemEvent('Public sheet not found for update.', 'ERROR', 'updatePublicSheetIfNeeded');
       return;
   }
   if (!newIncidentsToConsider || newIncidentsToConsider.length === 0) {
@@ -785,7 +1424,7 @@ function updatePublicSheetIfNeeded(publicSheet, newIncidentsToConsider) {
 
   try {
     const relevantIncidentsForPublic = newIncidentsToConsider.filter(inc => 
-        inc.verificationStatus === 'Verified by Gemini' || inc.verificationStatus === 'Verified Manually'
+        inc.verifiedManually === 'Verified by Gemini' || inc.verifiedManually === 'Verified Manually'
     );
 
     if (relevantIncidentsForPublic.length === 0) {
@@ -793,12 +1432,27 @@ function updatePublicSheetIfNeeded(publicSheet, newIncidentsToConsider) {
     }
     
     const publicRows = relevantIncidentsForPublic.map(incident => {
-        const locationSummary = [incident.cityVillage, incident.district, incident.state].filter(Boolean).join(', ');
+        const locationSummary = [incident.location, incident.district, incident.state].filter(Boolean).join(', ');
         return [
-            incident.incidentId, incident.title, incident.dateOfIncident,
-            locationSummary, incident.state, incident.victimCommunity,
-            incident.incidentType, incident.sourceName, incident.sourceUrl,
-            incident.lastUpdated
+            incident.incidentId,
+            incident.headline,
+            incident.summary,
+            incident.incidentDate,
+            incident.publishedAt,
+            locationSummary,
+            incident.district,
+            incident.state,
+            incident.latitude,
+            incident.longitude,
+            incident.victimGroup,
+            incident.incidentType,
+            incident.allegedPerp,
+            incident.policeAction,
+            incident.sourceUrl,
+            incident.sourceName,
+            incident.rssFeedId,
+            incident.confidenceScore,
+            incident.verifiedManually
         ];
     });
 
@@ -806,10 +1460,10 @@ function updatePublicSheetIfNeeded(publicSheet, newIncidentsToConsider) {
     publicSheet.getRange(lastRow + 1, 1, publicRows.length, CONFIG.HEADERS.PUBLIC.length)
       .setValues(publicRows);
 
-    logSystemEvent(`Updated public sheet "${publicSheet.getName()}" with ${publicRows.length} verified incidents.`, 'INFO');
+    logSystemEvent(`Updated public sheet "${publicSheet.getName()}" with ${publicRows.length} verified incidents.`, 'INFO', 'updatePublicSheetIfNeeded');
     exportPublicDataAsJson(); 
   } catch (error) {
-    logSystemEvent(`Error updating public sheet "${publicSheet.getName()}": ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Error updating public sheet "${publicSheet.getName()}": ${error.message}`, 'ERROR', 'updatePublicSheetIfNeeded', error.stack);
   }
 }
 
@@ -825,7 +1479,7 @@ function cleanupOldData(sheet) {
     const dateColIndex = CONFIG.HEADERS.INCIDENTS.indexOf(dateColName); 
     
     if (dateColIndex === -1) {
-      logSystemEvent(`Column "${dateColName}" for cleanup not found. Check CONFIG.HEADERS.INCIDENTS.`, 'ERROR');
+      logSystemEvent(`Column "${dateColName}" for cleanup not found. Check CONFIG.HEADERS.INCIDENTS.`, 'ERROR', 'cleanupOldData');
       return;
     }
 
@@ -843,7 +1497,7 @@ function cleanupOldData(sheet) {
                 rowsToDeleteIndices.push(i + 2); 
             }
         } catch (dateError) {
-            logSystemEvent(`Could not parse date "${rowDateString}" in row ${i+2} during cleanup. Error: ${dateError.message}`, 'WARNING');
+            logSystemEvent(`Could not parse date "${rowDateString}" in row ${i+2} during cleanup. Error: ${dateError.message}`, 'WARNING', 'cleanupOldData');
         }
       }
     }
@@ -853,37 +1507,48 @@ function cleanupOldData(sheet) {
       rowsToDeleteIndices.forEach(rowIndex => {
         sheet.deleteRow(rowIndex);
       });
-      logSystemEvent(`Cleaned up ${rowsToDeleteIndices.length} old incidents from "${sheet.getName()}".`, 'INFO');
+      logSystemEvent(`Cleaned up ${rowsToDeleteIndices.length} old incidents from "${sheet.getName()}".`, 'INFO', 'cleanupOldData');
     }
   } catch (error) {
-    logSystemEvent(`Error cleaning up old data from "${sheet.getName()}": ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Error cleaning up old data from "${sheet.getName()}": ${error.message}`, 'ERROR', 'cleanupOldData', error.stack);
   }
 }
 
-function logSystemEvent(message, level = 'INFO') {
+function logSystemEvent(message, level = 'INFO', functionName = '', details = '') {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let logSheet = ss.getSheetByName(CONFIG.SHEETS.LOGS);
     
     if (!logSheet) { 
         logSheet = ss.insertSheet(CONFIG.SHEETS.LOGS, 0); 
-        const logHeaders = CONFIG.HEADERS.LOGS || ['Timestamp', 'Level', 'Message']; 
+        const logHeaders = CONFIG.HEADERS.LOGS || ['Timestamp', 'Level', 'Function', 'Message', 'Details']; 
         if (logSheet.getLastRow() === 0) { 
             logSheet.appendRow(logHeaders);
             formatHeaders(logSheet, logHeaders.length); 
-            formatLogsSheet(logSheet); 
+            // Format the logs sheet but don't log the formatting process to avoid recursion
+            try {
+              formatLogsSheetSilent(logSheet);
+            } catch (formatError) {
+              console.warn('Could not format logs sheet:', formatError.message);
+            }
         }
         console.warn('Log sheet was missing and has been recreated.');
     }
     
     logSheet.insertRowBefore(2); 
     const timestamp = new Date();
-    logSheet.getRange(2, 1, 1, CONFIG.HEADERS.LOGS.length).setValues([[
+    
+    // Ensure we always provide exactly 5 values to match CONFIG.HEADERS.LOGS
+    const rowData = [
       timestamp.toISOString(), 
-      level.toString(),        
-      message.toString().substring(0, 30000) 
-    ]]);
-    console.log(`${timestamp.toLocaleTimeString()} [${level}] ${message}`); 
+      level.toString(),
+      functionName.toString(),        
+      message.toString().substring(0, 30000),
+      details.toString().substring(0, 10000)
+    ];
+    
+    logSheet.getRange(2, 1, 1, rowData.length).setValues([rowData]);
+    console.log(`${timestamp.toLocaleTimeString()} [${level}] ${functionName ? functionName + ': ' : ''}${message}`); 
   } catch (error) {
     console.error(`[${new Date().toLocaleTimeString()}] Failed to log system event ("${message}") to sheet: ${error.message} \nStack: ${error.stack}`);
   }
@@ -904,7 +1569,7 @@ function cleanupLogs() {
       console.log(`Cleaned up ${numToDelete} old log entries.`);
     }
   } catch (error) {
-      logSystemEvent(`Error cleaning up logs: ${error.message}`, 'ERROR'); 
+    logSystemEvent(`Error cleaning up logs: ${error.message}`, 'ERROR', 'cleanupLogs'); 
   }
 }
 
@@ -925,13 +1590,13 @@ function createOrReplaceTrigger() {
         .timeBased()
         .everyHours(CONFIG.UPDATE_FREQUENCY) 
         .create();
-      logSystemEvent(`Time trigger created/replaced to run fetchAndProcessData (processing one feed) every ${CONFIG.UPDATE_FREQUENCY} hours.`, 'INFO');
+      logSystemEvent(`Time trigger created/replaced to run fetchAndProcessData (processing one feed) every ${CONFIG.UPDATE_FREQUENCY} hours.`, 'INFO', 'createOrReplaceTrigger');
       triggerCreated = true;
     } else { 
-      logSystemEvent('CONFIG.UPDATE_FREQUENCY is not set for hourly. Manual trigger setup or adjustment needed for more frequent runs.', 'WARNING');
+      logSystemEvent('CONFIG.UPDATE_FREQUENCY is not set for hourly. Manual trigger setup or adjustment needed for more frequent runs.', 'WARNING', 'createOrReplaceTrigger');
     }
   } catch (e) {
-    logSystemEvent(`Error creating/replacing trigger: ${e.message}`, 'ERROR');
+    logSystemEvent(`Error creating/replacing trigger: ${e.message}`, 'ERROR', 'createOrReplaceTrigger');
   }
   return triggerCreated; 
 }
@@ -942,7 +1607,7 @@ function exportPublicDataAsJson() {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const publicSheet = ss.getSheetByName(CONFIG.SHEETS.PUBLIC);
     if (!publicSheet) {
-        logSystemEvent(`Public sheet "${CONFIG.SHEETS.PUBLIC}" not found for JSON export.`, 'ERROR');
+        logSystemEvent(`Public sheet "${CONFIG.SHEETS.PUBLIC}" not found for JSON export.`, 'ERROR', 'exportPublicDataAsJson');
         return;
     }
     const lastRow = publicSheet.getLastRow();
@@ -966,7 +1631,7 @@ function exportPublicDataAsJson() {
     updateJsonSheet(jsonDataString);
 
   } catch (error) {
-    logSystemEvent(`Error exporting public data to JSON: ${error.message} \nStack: ${error.stack}`, 'ERROR');
+    logSystemEvent(`Error exporting public data to JSON: ${error.message}`, 'ERROR', 'exportPublicDataAsJson', error.stack);
   }
 }
 
@@ -976,7 +1641,7 @@ function updateJsonSheet(jsonDataString) {
     let jsonSheet = ss.getSheetByName(jsonSheetName); 
     if (!jsonSheet) {
       jsonSheet = ss.insertSheet(jsonSheetName);
-      logSystemEvent(`Created new sheet "${jsonSheetName}" for JSON output.`, 'INFO');
+      logSystemEvent(`Created new sheet "${jsonSheetName}" for JSON output.`, 'INFO', 'updateJsonSheet');
     } else {
       jsonSheet.clearContents(); 
     }
@@ -1008,19 +1673,19 @@ function onEdit(e) {
       const editedCol = editedRange.getColumn();
       const newValue = e.value;
 
-      const verificationStatusColIndex = CONFIG.HEADERS.INCIDENTS.indexOf('Verification Status') + 1;
+      const verificationStatusColIndex = CONFIG.HEADERS.INCIDENTS.indexOf('Verified Manually') + 1;
 
-      if (editedCol === verificationStatusCol && newValue === 'Verified Manually') {
+      if (editedCol === verificationStatusColIndex && newValue === 'Verified Manually') {
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const incidentsSheet = editedSheet; 
         const publicSheet = ss.getSheetByName(CONFIG.SHEETS.PUBLIC);
 
         if (!publicSheet) {
-          logSystemEvent('onEdit: PublicData sheet not found. Cannot sync manual verification.', 'ERROR');
+          logSystemEvent('onEdit: PublicData sheet not found. Cannot sync manual verification.', 'ERROR', 'onEdit');
           return;
         }
 
-        logSystemEvent(`onEdit: Manual verification to "${newValue}" detected in "${CONFIG.SHEETS.INCIDENTS}", row ${editedRow}. Attempting to sync to PublicData.`, 'INFO');
+        logSystemEvent(`onEdit: Manual verification to "${newValue}" detected in "${CONFIG.SHEETS.INCIDENTS}", row ${editedRow}. Attempting to sync to PublicData.`, 'INFO', 'onEdit');
 
         // Get necessary data directly from the edited row values
         const incidentRowValues = incidentsSheet.getRange(editedRow, 1, 1, CONFIG.HEADERS.INCIDENTS.length).getValues()[0];
@@ -1033,51 +1698,60 @@ function onEdit(e) {
         const incidentId = incidentObject['Incident ID'];
 
         if (!incidentId) {
-            logSystemEvent(`onEdit: Incident ID is missing in row ${editedRow} of IncidentData. Cannot sync.`, 'WARNING');
+            logSystemEvent(`onEdit: Incident ID is missing in row ${editedRow} of IncidentData. Cannot sync.`, 'WARNING', 'onEdit');
             return;
         }
 
         // Check if this incident ID already exists in PublicData
-        const publicIncidentIdColPublic = CONFIG.HEADERS.PUBLIC.indexOf('Incident ID') + 1;
+        const publicIncidentIdColPublic = CONFIG.HEADERS.PUBLIC.indexOf('incident_id') + 1;
         let isAlreadyPublic = false;
         if (publicSheet.getLastRow() >= 2 && publicIncidentIdColPublic > 0) {
             const publicIncidentIds = publicSheet.getRange(2, publicIncidentIdColPublic, publicSheet.getLastRow() - 1, 1).getValues().flat();
             if (publicIncidentIds.includes(incidentId)) {
                 isAlreadyPublic = true;
-                logSystemEvent(`onEdit: Incident ID "${incidentId}" is already in PublicData. No new append needed.`, 'INFO');
+                logSystemEvent(`onEdit: Incident ID "${incidentId}" is already in PublicData. No new append needed.`, 'INFO', 'onEdit');
                 // Consider if you want to UPDATE the existing row in PublicData here if other details might change.
                 // For now, it just prevents re-appending.
             }
         }
 
         if (!isAlreadyPublic) {
-          const cityVillage = incidentObject['City/Village'] || '';
+          const location = incidentObject['Location'] || '';
           const district = incidentObject['District'] || '';
           const state = incidentObject['State'] || '';
-          const locationSummary = [cityVillage, district, state].filter(Boolean).join(', ');
+          const locationSummary = [location, district, state].filter(Boolean).join(', ');
 
           const publicRowData = [
             incidentId,
-            incidentObject['Title'],
-            incidentObject['Date of Incident'],
+            incidentObject['Headline'],
+            incidentObject['Summary'],
+            incidentObject['Incident Date'],
+            incidentObject['Published At'],
             locationSummary,
-            state, 
-            incidentObject['Victim Community'],
+            district,
+            state,
+            incidentObject['Latitude'],
+            incidentObject['Longitude'],
+            incidentObject['Victim Group'],
             incidentObject['Incident Type'],
-            incidentObject['Source Name'],
+            incidentObject['Alleged Perpetrator'],
+            incidentObject['Police Action'],
             incidentObject['Source URL'],
-            new Date().toISOString() // Update 'Last Updated' to reflect this sync time
+            incidentObject['Source Name'],
+            incidentObject['RSS Feed ID'],
+            incidentObject['Confidence Score'],
+            incidentObject['Verified Manually']
           ];
 
           publicSheet.appendRow(publicRowData);
-          logSystemEvent(`onEdit: Incident ID "${incidentId}" (manually verified) appended to PublicData.`, 'INFO');
+          logSystemEvent(`onEdit: Incident ID "${incidentId}" (manually verified) appended to PublicData.`, 'INFO', 'onEdit');
           exportPublicDataAsJson(); // Update the JSON export
         }
       }
     }
   } catch (error) {
     try {
-      logSystemEvent(`onEdit Error: ${error.message} \nStack: ${error.stack}`, 'ERROR');
+      logSystemEvent(`onEdit Error: ${error.message}`, 'ERROR', 'onEdit', error.stack);
     } catch (logError) {
       // Fallback if logSystemEvent itself fails (e.g., sheet issues)
       console.error(`onEdit Error: ${error.message}. Also failed to log to sheet: ${logError.message}`);
