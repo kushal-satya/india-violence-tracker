@@ -28,18 +28,56 @@ class MapManager {
     }
 
     async initialize(incidents) {
-        if (this.initialized) {
+        console.log('[map] Starting map initialization');
+        
+        // If already initialized, just update the map
+        if (this.initialized && this.map) {
+            console.log('[map] Map already initialized, updating instead');
             this.updateMap(incidents);
             return;
         }
 
         try {
+            console.log('[map] Starting fresh map initialization');
+            
+            // Debug map container
             const mapContainer = document.getElementById('map');
+            console.log('[map] Map container found:', mapContainer ? true : false);
+            
             if (!mapContainer) {
+                console.error('[map] Map container not found - looking for element with id="map"');
+                
+                // Try to find any potential map containers
+                const potentialContainers = document.querySelectorAll('div[id*="map"], div.map');
+                if (potentialContainers.length > 0) {
+                    console.log('[map] Found potential map containers:', 
+                        Array.from(potentialContainers).map(el => `${el.tagName}#${el.id}.${el.className}`));
+                }
+                
                 throw new Error('Map container not found');
             }
 
+            // Clean up any existing map instance
+            if (this.map) {
+                console.log('[map] Removing existing map instance');
+                this.map.remove();
+                this.map = null;
+                this.markers = null;
+            }
+            
+            // Clear the container to ensure it's clean
+            mapContainer.innerHTML = '';
+            
+            // Remove any Leaflet-specific classes that might interfere
+            mapContainer.className = mapContainer.className.replace(/leaflet-\S+/g, '').trim();
+            
+            // Ensure container has proper styling
+            if (!mapContainer.style.height) {
+                mapContainer.style.height = '384px'; // h-96 equivalent
+            }
+
             // Initialize map with India's center
+            console.log('[map] Creating Leaflet map');
             this.map = L.map(mapContainer, {
                 center: [20.5937, 78.9629],
                 zoom: 5,
@@ -68,6 +106,7 @@ class MapManager {
             }).addTo(this.map);
 
             // Initialize marker cluster group
+            console.log('[map] Creating marker cluster group');
             this.markers = L.markerClusterGroup({
                 chunkedLoading: true,
                 maxClusterRadius: 50,
@@ -95,9 +134,36 @@ class MapManager {
             });
 
             this.initialized = true;
+            console.log('[map] Map initialization complete');
+            
+            // Add a visible marker just to test the map is working
+            const testMarker = L.marker([20.5937, 78.9629], {
+                icon: L.divIcon({
+                    html: `<div style="background-color: red; width: 20px; height: 20px; border-radius: 50%;"></div>`,
+                    className: 'test-marker',
+                    iconSize: [20, 20]
+                })
+            });
+            testMarker.addTo(this.map);
+            console.log('[map] Added test marker to verify map is working');
+            
+            // Update with real incidents
             this.updateMap(incidents);
         } catch (error) {
-            console.error('Error initializing map:', error);
+            console.error('[map] Error initializing map:', error);
+            
+            // Reset state on error
+            this.initialized = false;
+            if (this.map) {
+                try {
+                    this.map.remove();
+                } catch (e) {
+                    console.warn('[map] Error removing map on cleanup:', e);
+                }
+                this.map = null;
+            }
+            this.markers = null;
+            
             document.getElementById('errorBanner')?.classList.remove('hidden');
             throw new Error('Failed to initialize map');
         }
@@ -206,21 +272,24 @@ class MapManager {
         if (!this.initialized || !this.markers) return;
 
         try {
+            console.time('[map] Update map');
             this.incidents = incidents;
             this.markers.clearLayers();
 
             // Filter incidents with valid coordinates
             const validIncidents = incidents.filter(incident => {
                 // Try to ensure lat/lon are numbers
-                const lat = parseFloat(incident.lat);
-                const lon = parseFloat(incident.lon);
+                const lat = typeof incident.lat === 'number' ? incident.lat : parseFloat(incident.lat);
+                const lon = typeof incident.lon === 'number' ? incident.lon : parseFloat(incident.lon);
                 
-                // Check if values are valid numbers, not null/undefined, and within reasonable ranges
-                const isValid = !isNaN(lat) && !isNaN(lon) && 
-                               lat !== null && lon !== null &&
-                               typeof lat === 'number' && typeof lon === 'number';
+                // Check if values are valid numbers
+                const isValid = lat !== null && lon !== null && 
+                                !isNaN(lat) && !isNaN(lon) && 
+                                isFinite(lat) && isFinite(lon) &&
+                                // Make sure they're in a reasonable range
+                                lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
                 
-                // For debugging: log coordinate details
+                // For debugging: log coordinate details for invalid ones
                 if (!isValid) {
                     console.debug(`[map] Skipping incident with invalid coordinates: 
                         Title: ${incident.title || 'Untitled'}, 
@@ -245,49 +314,70 @@ class MapManager {
                         lonType: typeof incident.lon
                     }));
                 });
-            }
-
-            validIncidents.forEach(incident => {
-                try {
-                    // Convert lat/lon to numbers again to be safe
-                    const lat = parseFloat(incident.lat);
-                    const lon = parseFloat(incident.lon);
-                    
-                    if (isNaN(lat) || isNaN(lon)) {
-                        console.warn(`[map] Skipping marker with invalid coordinates: ${incident.title}`);
-                        return; // Skip this iteration
-                    }
-                    
-                    console.debug(`[map] Creating marker for: ${incident.title}, coordinates: [${lat}, ${lon}]`);
-                    
-                    const marker = L.marker(
-                        [lat, lon],
-                        { icon: this.createMarkerIcon(incident) }
-                    );
-
-                    // Create popup content
-                    const popupContent = this.createPopupContent(incident);
-                    marker.bindPopup(popupContent, {
-                        maxWidth: 300,
-                        className: 'custom-popup',
-                        closeButton: true
-                    });
-
-                    this.markers.addLayer(marker);
-                } catch (error) {
-                    console.error(`[map] Error creating marker for incident: ${incident.title}`, error);
+                
+                // Show error message on map container
+                const mapContainer = document.getElementById('map');
+                if (mapContainer) {
+                    mapContainer.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full py-12 text-gray-500 dark:text-gray-400">
+                            <svg class="h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p class="text-lg font-medium">No mappable incidents available</p>
+                            <p class="mt-2 text-sm">Data loaded but no valid coordinates found</p>
+                        </div>
+                    `;
                 }
-            });
-
-            // Fit bounds to show all markers
-            if (this.markers.getLayers().length > 0) {
-                this.map.fitBounds(this.markers.getBounds(), {
-                    padding: [50, 50],
-                    maxZoom: 12
-                });
             } else {
-                console.warn('[map] No valid markers to display');
+                // Add markers for valid incidents
+                let markerCount = 0;
+                
+                validIncidents.forEach(incident => {
+                    try {
+                        // Convert lat/lon to numbers again to be safe
+                        const lat = typeof incident.lat === 'number' ? incident.lat : parseFloat(incident.lat);
+                        const lon = typeof incident.lon === 'number' ? incident.lon : parseFloat(incident.lon);
+                        
+                        if (isNaN(lat) || isNaN(lon) || !isFinite(lat) || !isFinite(lon)) {
+                            console.warn(`[map] Skipping marker with invalid coordinates: ${incident.title}`);
+                            return; // Skip this iteration
+                        }
+                        
+                        // Create marker with custom icon
+                        const marker = L.marker(
+                            [lat, lon],
+                            { icon: this.createMarkerIcon(incident) }
+                        );
+
+                        // Create popup content
+                        const popupContent = this.createPopupContent(incident);
+                        marker.bindPopup(popupContent, {
+                            maxWidth: 300,
+                            className: 'custom-popup',
+                            closeButton: true
+                        });
+
+                        this.markers.addLayer(marker);
+                        markerCount++;
+                    } catch (error) {
+                        console.error(`[map] Error creating marker for incident: ${incident.title}`, error);
+                    }
+                });
+
+                console.info(`[map] Added ${markerCount} markers to the map`);
+
+                // Fit bounds to show all markers
+                if (this.markers.getLayers().length > 0) {
+                    this.map.fitBounds(this.markers.getBounds(), {
+                        padding: [50, 50],
+                        maxZoom: 12
+                    });
+                } else {
+                    console.warn('[map] No valid markers to display');
+                }
             }
+            
+            console.timeEnd('[map] Update map');
         } catch (error) {
             console.error('Error updating map:', error);
             document.getElementById('errorBanner')?.classList.remove('hidden');
