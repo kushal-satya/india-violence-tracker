@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Verify JS Deploy</title>
+</head>
+<body>
+  <h1>Deployment Verification</h1>
+  <p>If you see the unique version comment in the console, deployment is working.</p>
+  <script type="module">
+    import dataManager from './js/data.js?v=2';
+    console.log('Loaded dataManager:', dataManager);
+    window.dataManager = dataManager;
+  </script>
+  <p>Open the browser console to check for the log and any errors.</p>
+</body>
+</html> 
