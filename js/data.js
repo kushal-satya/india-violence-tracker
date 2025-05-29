@@ -99,17 +99,23 @@ class DataManager {
                     }
                 });
                 
-                // Convert lat/lon to numbers, skip if invalid
-                if (incident.lat && incident.lon) {
-                    const lat = parseFloat(incident.lat);
-                    const lon = parseFloat(incident.lon);
-                    if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
-                        incident.lat = lat;
-                        incident.lon = lon;
-                    } else {
-                        delete incident.lat;
-                        delete incident.lon;
-                    }
+                // Convert lat/lon to numbers
+                // Always try to parse lat/lon, just initialize to null if invalid
+                const lat = parseFloat(incident.lat);
+                const lon = parseFloat(incident.lon);
+                
+                // Only set lat/lon if both values are valid numbers
+                if (!isNaN(lat) && !isNaN(lon)) {
+                    incident.lat = lat;
+                    incident.lon = lon;
+                    
+                    // Log coordinates for debugging
+                    console.debug(`[parse] Valid coordinates for incident: ${incident.title}, lat: ${lat}, lon: ${lon}`);
+                } else {
+                    // For debugging: Log the raw values that couldn't be parsed
+                    console.debug(`[parse] Invalid coordinates for incident: ${incident.title}, raw lat: ${incident.lat}, raw lon: ${incident.lon}`);
+                    incident.lat = null;
+                    incident.lon = null;
                 }
                 
                 return incident;
