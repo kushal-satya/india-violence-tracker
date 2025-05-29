@@ -41,7 +41,6 @@ jobs:
       - name: Copy built assets to docs 📁
         run: |
           cp -r css docs/
-          cp -r js docs/
           cp -r assets docs/
           cp site.webmanifest docs/
           
