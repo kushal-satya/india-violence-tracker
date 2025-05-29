@@ -23,12 +23,12 @@ class TableManager {
 
         try {
             // Get DOM elements
-            this.table = document.getElementById('incidentsTable');
+            this.table = document.getElementById('incidents-table');
             this.tableBody = document.getElementById('incidentsTableBody');
-            this.searchInput = document.getElementById('searchInput');
-            this.stateFilter = document.getElementById('stateFilter');
-            this.typeFilter = document.getElementById('typeFilter');
-            this.dateFilter = document.getElementById('dateFilter');
+            this.searchInput = document.getElementById('search-input');
+            this.stateFilter = document.getElementById('state-filter');
+            this.typeFilter = document.getElementById('incident-type-filter');
+            this.dateFilter = document.getElementById('date-from');
 
             if (!this.table || !this.tableBody || !this.searchInput || !this.stateFilter || !this.typeFilter || !this.dateFilter) {
                 throw new Error('Required table elements not found');

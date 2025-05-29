@@ -34,7 +34,7 @@ class MapManager {
         }
 
         try {
-            const mapContainer = document.getElementById('mapContainer');
+            const mapContainer = document.getElementById('map');
             if (!mapContainer) {
                 throw new Error('Map container not found');
             }
