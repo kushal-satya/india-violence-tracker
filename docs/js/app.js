@@ -78,31 +78,50 @@ class App {
 
     async loadData() {
         try {
+            console.log('🚀 Starting data load...');
             const success = await dataManager.fetchData();
+            console.log('📊 Data fetch result:', success);
+            
             if (!success) {
+                console.error('❌ Data fetch failed');
                 if (dataManager.error) {
                     this.showError(dataManager.error);
                 } else {
                     this.showError('Failed to load data. Please try again later.');
                 }
+                // Show error screen, hide loading screen
+                document.getElementById('loading-screen')?.classList.add('hidden');
+                document.getElementById('error-screen')?.classList.remove('hidden');
+                document.getElementById('loader')?.classList.add('hidden');
                 return;
             }
+            
+            console.log('📈 Initializing UI components...');
+            const incidents = dataManager.getIncidents();
+            console.log('📋 Incidents loaded:', incidents.length);
             
             // Update all UI components
             await Promise.all([
                 this.updateUI(),
-                mapManager.initialize(dataManager.getIncidents()),
-                tableManager.initialize(dataManager.getIncidents()),
-                chartsManager.initialize(dataManager.getIncidents())
+                mapManager.initialize(incidents),
+                tableManager.initialize(incidents),
+                chartsManager.initialize(incidents)
             ]);
 
-            // Hide loading spinner
+            // Hide loading spinner and error screen, show dashboard
             document.getElementById('loader')?.classList.add('hidden');
+            document.getElementById('loading-screen')?.classList.add('hidden');
+            document.getElementById('error-screen')?.classList.add('hidden');
+            document.getElementById('dashboard')?.classList.remove('hidden');
+            
+            console.log('✅ Dashboard initialized successfully!');
             
         } catch (error) {
             console.error('Error loading data:', error);
             this.showError('An error occurred while loading data.');
             document.getElementById('loader')?.classList.add('hidden');
+            document.getElementById('loading-screen')?.classList.add('hidden');
+            document.getElementById('error-screen')?.classList.remove('hidden');
         }
     }
 
